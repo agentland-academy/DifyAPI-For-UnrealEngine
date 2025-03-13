@@ -56,7 +56,17 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
 	JsonObject->SetObjectField(TEXT("inputs"), MakeShareable(new FJsonObject));
 	JsonObject->SetStringField(TEXT("query"), _Message);
-	JsonObject->SetStringField(TEXT("response_mode"), TEXT("blocking"));
+
+
+	FString responseMode = "";
+
+	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+		responseMode = "blocking";
+	else
+		responseMode = "streaming";
+	
+	//流式 or 阻塞
+	JsonObject->SetStringField(TEXT("response_mode"), responseMode);
 
 	//如果是单聊，就不传conversation_id
 	FString conversation_id = "";
@@ -79,7 +89,51 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	// 设置请求内容
 	HttpRequest->SetContentAsString(OutputString);
 
-	// 绑定回调函数
+
+	// 绑定进度回调函数
+	HttpRequest->OnRequestProgress64().BindLambda([this](FHttpRequestPtr _Request, uint64 BytesSent, uint64 BytesReceived)
+	{
+		UE_LOG(LogTemp, Log, TEXT("BytesSent: %d, BytesReceived: %d"), BytesSent, BytesReceived);
+
+		const FHttpResponsePtr Response = _Request->GetResponse();
+
+
+		//不存在就说明请求失败
+		if(!Response.IsValid())
+		{
+			FString logText = "[DifyChat]:\nRequest failed";
+			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+			return ;
+		}
+		
+		
+		//FString logText =
+				//"[DifyChat]:\nCode：" + Response->GetResponseCode();
+		//logText+= "\n" + Response->GetContentAsString();
+
+		// 只需最后一个data{}
+		FString lastResponse = Response->GetContentAsString();
+		
+		TArray<FString> DataBlocks;
+		lastResponse.ParseIntoArray(DataBlocks, TEXT("data: "), true);
+		
+		if (DataBlocks.Num() > 0)
+			lastResponse = DataBlocks.Last();
+		
+		lastResponse.TrimStartAndEndInline();
+		
+
+		UE_LOG(LogTemp, Log, TEXT("%s"), *lastResponse);
+
+		//解析返回的数据，然后直接广播委托
+		ParseDifyResponse(lastResponse);
+		
+	});
+	
+
+	
+
+	// 绑定回调函数,请求完成后调用
 	HttpRequest->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
 		if (bWasSuccessful && Response.IsValid())
@@ -125,10 +179,11 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	///id
 	///message_id
 	///conversation_id
+	///created_at
+	////////blocking/////////
 	///mode
 	///answer
 	///metadata(用不着应该)
-	///created_at
 	////////////////////////// 解析JSON /////////////////////////
 	FDifyChatResponse difyChatResponse;
 	
@@ -148,18 +203,35 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	//解析完毕，可以再次发送请求
 	bIsWaitingDifyResponse = false;
 
+	// 阻塞模式 或者 事件为message_end时 说明返回结束
+	bool bIsMessageEnd = false;
+	bIsMessageEnd = (DifyChatResponseMode == EDifyChatResponseMode::Blocking) || 
+		(difyChatResponse.event == "message_end");
+	
+	//UE_LOG(LogTemp, Log, TEXT("[event]:\n%s"), *difyChatResponse.event);
+	
+	
 	//广播委托,让蓝图使用
-	OnDifyChatResponse.Broadcast(difyChatResponse);
+
+	if(!bIsMessageEnd)
+		OnDifyChatResponding.Broadcast(difyChatResponse);
+	else
+		OnDifyChatResponded.Broadcast(difyChatResponse);
+
+
+	
 }
 
+
 void UDifyChatComponent::InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
-		EDifyChatType _DifyChatType)
+		EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode)
 {
-	DifyURL			= _DifyURL;
-	DifyAPIKey		= _DifyAPIKey;
-	ChatName		= _ChatName;
-	UserName		= _UserName;
-	DifyChatType	= _DifyChatType;
+	DifyURL					= _DifyURL;
+	DifyAPIKey				= _DifyAPIKey;
+	ChatName				= _ChatName;
+	UserName				= _UserName;
+	DifyChatType			= _DifyChatType;
+	DifyChatResponseMode	= _DifyChatResponseMode;
 }
 
 void UDifyChatComponent::TalkToAI(FString _Message)
