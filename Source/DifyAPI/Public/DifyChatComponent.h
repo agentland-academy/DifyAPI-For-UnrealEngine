@@ -40,10 +40,13 @@ struct FDifyChatResponse
 	FString ChatName;
 };
 
-//委托,在[dify返回数据]后能够让蓝图使用
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatResponseDelegate, FDifyChatResponse, Response);
+//委托,在[dify返回后]
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDifyChatRespondedDelegate);
 
-//委托,在[向dify发送数据]后能够让蓝图使用
+//委托,在[dify返回时]
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatRespondingDelegate, FDifyChatResponse, Response);
+
+//委托,在[向dify发送数据后]
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDifyChatTalkToDelegate, FString, UserName , FString, Message);
 
 
@@ -142,13 +145,13 @@ protected:
 	
 	///////////////////// 委托 /////////////////////
 
-	//Dify的流式回应
+	//Dify回应时
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
-	FDifyChatResponseDelegate OnDifyChatResponding;
+	FDifyChatRespondingDelegate OnDifyChatResponding;
 
-	//Dify的阻塞回应或者流式回应结束时
+	//Dify回应后
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
-	FDifyChatResponseDelegate OnDifyChatResponded;
+	FDifyChatRespondedDelegate OnDifyChatResponded;
 	
 	
 	//向Dify对话
@@ -164,6 +167,12 @@ protected:
 	//对话ID（只在多轮对话中有用）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString ConversationID;
+
+	/*
+	 在streaming模式下，当前返回的和之前返回的内容都在一起。但是并不是每一次都只多返回一个，
+	 所以需要一个额外的索引记录上一次返回到哪里了。
+	 */
+	int LastDataBlocksIndex = 0;
 	
 };
 
