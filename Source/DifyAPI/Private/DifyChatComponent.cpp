@@ -110,12 +110,21 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 
 		//获取返回的字符串格式的数据
 		FString responseString = response->GetContentAsString();
+
+
+		//如果是blocking模式，直接解析返回的数据
+		if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+		{
+			ParseDifyResponse(responseString);
+			return ;
+		}
+
+		//如果是streaming模式，就要一条条解析
 		
 		TArray<FString> dataBlocks;
 
 		//用正则匹配data:{...}
-		//const FRegexPattern difyResponsePattern(TEXT("data: \\{.*?\\}"));
-		const FRegexPattern difyResponsePattern(TEXT("\\{\"event\": \"message\".*?\\}"));
+		const FRegexPattern difyResponsePattern(TEXT("\\{\"event\": \"message\".*?\\}"));//"data: \\{.*?\\}"
 		FRegexMatcher difyResponseMatcher(difyResponsePattern, responseString);
 
 		// 这里应该可以优化，但是我不知道怎么搞:)
@@ -127,7 +136,6 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 		
 
 		//UE_LOG(LogTemp, Log, TEXT("[DataBlocks]:%s"),*responseString);
-
 		
 		int testI = dataBlocks.Num();
 		UE_LOG(LogTemp, Log, TEXT("[DataBlocks.Num]:%d"),testI);
@@ -136,42 +144,21 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 		for(int i = LastDataBlocksIndex; i < dataBlocks.Num(); i++)
         {
 			responseString = dataBlocks[i];
-
+			
 			//解析返回的数据，然后直接广播委托
 			ParseDifyResponse(responseString);
         }
-
 		
-
 		//更新索引
 		if(dataBlocks.Num() > LastDataBlocksIndex) // 有时返回是空的，一行都没有
 			LastDataBlocksIndex = dataBlocks.Num();
 		
-		
-		//lastResponse.TrimStartAndEndInline(); //不知道要不要这一行
 	});
 	
 	////////////////////////////////// 绑定Dify【响应后】的回调 ////////////////////////////////
 
 	HttpRequest->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
-		// if (bWasSuccessful && Response.IsValid())
-		// {
-		// 	FString logText =
-		// 		"[DifyChat]:\nCode：" + Response->GetResponseCode();
-		// 	logText+= "\n" + Response->GetContentAsString();
-		// 	UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
-		// }
-		// else
-		// {
-		// 	FString logText = "[DifyChat]:\nRequest failed";
-		// 	UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
-		// }
-		// //解析返回的数据，然后直接广播委托
-		// ParseDifyResponse(Response->GetContentAsString());
-		
-		//OnDifyChatResponse.Broadcast(*Response->GetContentAsString());
-
 		//广播【响应后】委托
 		OnDifyChatResponded.Broadcast();
 
@@ -180,11 +167,8 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 		
 		//设置为不在等待返回
 		bIsWaitingDifyResponse = false;
-		
 	});
-
 	HttpRequest->ProcessRequest();
-	
 }
 
 //----------------------------------------------------
@@ -226,7 +210,6 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
     //    return;
     //}
 	
-	
 	difyChatResponse.task_id		= JsonObject->GetStringField(TEXT("task_id"));
 	difyChatResponse.id				= JsonObject->GetStringField(TEXT("id"));
 	difyChatResponse.message_id		= JsonObject->GetStringField(TEXT("message_id"));
@@ -250,23 +233,6 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 
 	//广播【响应时】委托
 	OnDifyChatResponding.Broadcast(difyChatResponse);
-
-	// 阻塞模式 或者 事件为message_end时 说明返回结束
-	//bool bIsMessageEnd = false;
-	//bIsMessageEnd = (DifyChatResponseMode == EDifyChatResponseMode::Blocking)
-					//|| (difyChatResponse.event == "message_end");
-	
-	//UE_LOG(LogTemp, Log, TEXT("[event]:\n%s"), *difyChatResponse.event);
-	
-	
-	//广播委托,让蓝图使用
-
-	//if(!bIsMessageEnd)
-	//	OnDifyChatResponding.Broadcast(difyChatResponse);
-	//else
-	//	OnDifyChatResponded.Broadcast(difyChatResponse);
-
-
 	
 }
 
