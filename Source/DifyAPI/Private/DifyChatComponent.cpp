@@ -4,7 +4,6 @@
 #include "DifyChatComponent.h"
 
 #include "HttpModule.h"
-#include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -19,6 +18,7 @@ UDifyChatComponent::UDifyChatComponent()
 	UserName = "Player255";
 	DifyChatType = EDifyChatType::SingleChat;
 	ConversationID = "";
+	DifyChatResponseMode = EDifyChatResponseMode::Blocking;
 }
 
 
@@ -97,79 +97,98 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	HttpRequest->OnRequestProgress64().BindLambda([this](const FHttpRequestPtr& _Request, uint64 _BytesSent, uint64 _BytesReceived)
 	{
 		UE_LOG(LogTemp, Log, TEXT("BytesSent: %llu, BytesReceived: %llu"), _BytesSent, _BytesReceived);
-
-		const FHttpResponsePtr response = _Request->GetResponse();
-
-		//不存在就说明请求失败
-		if(!response.IsValid())
-		{
-			FString logText = "[DifyChat]:\nRequest failed";
-			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
-			return ;
-		}
-
-		//获取返回的字符串格式的数据
-		FString responseString = response->GetContentAsString();
-
-
-		//如果是blocking模式，直接解析返回的数据
-		if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
-		{
-			ParseDifyResponse(responseString);
-			return ;
-		}
-
-		//如果是streaming模式，就要一条条解析
-		
-		TArray<FString> dataBlocks;
-
-		//用正则匹配data:{...}
-		const FRegexPattern difyResponsePattern(TEXT("\\{\"event\": \"message\".*?\\}"));//"data: \\{.*?\\}"
-		FRegexMatcher difyResponseMatcher(difyResponsePattern, responseString);
-
-		// 这里应该可以优化，但是我不知道怎么搞:)
-		while (difyResponseMatcher.FindNext())
-		{
-			FString match = difyResponseMatcher.GetCaptureGroup(0);
-			dataBlocks.Add(match);
-		}
-		
-
-		//UE_LOG(LogTemp, Log, TEXT("[DataBlocks]:%s"),*responseString);
-		
-		int testI = dataBlocks.Num();
-		UE_LOG(LogTemp, Log, TEXT("[DataBlocks.Num]:%d"),testI);
-
-		//有时会同时新返回多个data{}，所以要用循环
-		for(int i = LastDataBlocksIndex; i < dataBlocks.Num(); i++)
-        {
-			responseString = dataBlocks[i];
-			
-			//解析返回的数据，然后直接广播委托
-			ParseDifyResponse(responseString);
-        }
-		
-		//更新索引
-		if(dataBlocks.Num() > LastDataBlocksIndex) // 有时返回是空的，一行都没有
-			LastDataBlocksIndex = dataBlocks.Num();
-		
+		OnDifyResponding(_Request);
 	});
 	
 	////////////////////////////////// 绑定Dify【响应后】的回调 ////////////////////////////////
 
 	HttpRequest->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
-		//广播【响应后】委托
-		OnDifyChatResponded.Broadcast();
-
-		//下一轮的返回索引当然从0开始
-		LastDataBlocksIndex = 0;
-		
-		//设置为不在等待返回
-		bIsWaitingDifyResponse = false;
+		OnDifyResponded();
 	});
+	
+	////////////////////////////////// 发送请求 ////////////////////////////////
+
 	HttpRequest->ProcessRequest();
 }
+
+
+//----------------------------------------------------
+// 目的：在Dify回复时，获取返回的源数据
+//----------------------------------------------------
+void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
+{
+	const FHttpResponsePtr response = _Request->GetResponse();
+
+	//不存在就说明请求失败
+	if(!response.IsValid())
+	{
+		FString logText = "[DifyChat]:\nRequest failed";
+		UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+		return ;
+	}
+
+	//获取返回的字符串格式的数据
+	FString responseString = response->GetContentAsString();
+	
+	//如果是blocking模式，直接解析数据
+	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+	{
+		ParseDifyResponse(responseString);
+		return ;
+	}
+
+	//如果是streaming模式，一条条解析
+		
+	TArray<FString> dataBlocks;
+
+	//用正则匹配data:{...}
+	const FRegexPattern difyResponsePattern(TEXT("\\{\"event\": \"message\".*?\\}"));//"data: \\{.*?\\}"
+	FRegexMatcher difyResponseMatcher(difyResponsePattern, responseString);
+
+	// 这里应该可以优化，但是我不知道怎么搞:)
+	while (difyResponseMatcher.FindNext())
+	{
+		FString match = difyResponseMatcher.GetCaptureGroup(0);
+		dataBlocks.Add(match);
+	}
+		
+
+	//UE_LOG(LogTemp, Log, TEXT("[DataBlocks]:%s"),*responseString);
+		
+	int testI = dataBlocks.Num();
+	UE_LOG(LogTemp, Log, TEXT("[DataBlocks.Num]:%d"),testI);
+
+	//有时会同时新返回多个data{}，所以要用循环
+	for(int i = LastDataBlocksIndex; i < dataBlocks.Num(); i++)
+	{
+		responseString = dataBlocks[i];
+			
+		//解析返回的数据，然后直接广播委托
+		ParseDifyResponse(responseString);
+	}
+		
+	//更新索引
+	if(dataBlocks.Num() > LastDataBlocksIndex) // 有时返回是空的，一行都没有
+		LastDataBlocksIndex = dataBlocks.Num();
+}
+
+
+//----------------------------------------------------
+// 目的：在Dify回复结束后，广播委托，重置属性
+//----------------------------------------------------
+void UDifyChatComponent::OnDifyResponded()
+{
+	//广播【响应后】委托
+	OnDifyChatResponded.Broadcast();
+
+	//下一轮的返回索引当然从0开始
+	LastDataBlocksIndex = 0;
+		
+	//设置为不在等待返回
+	bIsWaitingDifyResponse = false;
+}
+
 
 //----------------------------------------------------
 // 目的：解析Dify返回的数据,并广播委托
@@ -236,7 +255,9 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	
 }
 
-
+//----------------------------------------------------
+// 目的：在一个节点里初始化DifyChat
+//----------------------------------------------------
 void UDifyChatComponent::InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
 		EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode)
 {
@@ -248,6 +269,10 @@ void UDifyChatComponent::InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FSt
 	DifyChatResponseMode	= _DifyChatResponseMode;
 }
 
+
+//----------------------------------------------------
+// 目的：向Dify发送消息
+//----------------------------------------------------
 void UDifyChatComponent::TalkToAI(FString _Message)
 {
 	//如果上一个还没返回，就不发送

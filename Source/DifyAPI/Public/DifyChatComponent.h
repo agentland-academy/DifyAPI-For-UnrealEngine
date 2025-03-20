@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Interfaces/IHttpRequest.h"
 #include "DifyChatComponent.generated.h"
 
 //Dify返回的数据结构
@@ -86,6 +87,12 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SentDifyPostRequest(FString _Message);
 
+	//收到Dify响应时的回调
+	void OnDifyResponding(const FHttpRequestPtr& _Request);
+	
+	//收到Dify响应后的回调
+	void OnDifyResponded();
+	
 	// 解析Dify返回的数据
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void ParseDifyResponse(FString _Response);
