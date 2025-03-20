@@ -117,13 +117,13 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 		TArray<FString> DataBlocks;
 		lastResponse.ParseIntoArray(DataBlocks, TEXT("data: "), true);
 		
-		if (DataBlocks.Num() > 0)
+		if (!DataBlocks.IsEmpty())
 			lastResponse = DataBlocks.Last();
 		
-		lastResponse.TrimStartAndEndInline();
+		//lastResponse.TrimStartAndEndInline();
 		
 
-		UE_LOG(LogTemp, Log, TEXT("%s"), *lastResponse);
+		//UE_LOG(LogTemp, Log, TEXT("%s"), *lastResponse);
 
 		//解析返回的数据，然后直接广播委托
 		ParseDifyResponse(lastResponse);
@@ -133,27 +133,27 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 
 	
 
-	// 绑定回调函数,请求完成后调用
-	HttpRequest->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
-	{
-		if (bWasSuccessful && Response.IsValid())
-		{
-			FString logText =
-				"[DifyChat]:\nCode：" + Response->GetResponseCode();
-			logText+= "\n" + Response->GetContentAsString();
-			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
-		}
-		else
-		{
-			FString logText = "[DifyChat]:\nRequest failed";
-			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
-		}
-		//解析返回的数据，然后直接广播委托
-		ParseDifyResponse(Response->GetContentAsString());
-		
-		//OnDifyChatResponse.Broadcast(*Response->GetContentAsString());
-		
-	});
+	// // 绑定回调函数,请求完成后调用
+	// HttpRequest->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+	// {
+	// 	if (bWasSuccessful && Response.IsValid())
+	// 	{
+	// 		FString logText =
+	// 			"[DifyChat]:\nCode：" + Response->GetResponseCode();
+	// 		logText+= "\n" + Response->GetContentAsString();
+	// 		UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+	// 	}
+	// 	else
+	// 	{
+	// 		FString logText = "[DifyChat]:\nRequest failed";
+	// 		UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+	// 	}
+	// 	//解析返回的数据，然后直接广播委托
+	// 	ParseDifyResponse(Response->GetContentAsString());
+	// 	
+	// 	//OnDifyChatResponse.Broadcast(*Response->GetContentAsString());
+	// 	
+	// });
 
 	HttpRequest->ProcessRequest();
 	
@@ -169,54 +169,77 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(_Response);
 	if (!FJsonSerializer::Deserialize(Reader, JsonObject))
 	{
+		//_Response
+		UE_LOG(LogTemp, Error, TEXT("[Error_Response]:\n%s"), *_Response);
 		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON"));
 		return;
 	}
 
 	////////////////////////// JSON参考 //////////////////////////
-	///event
-	///task_id
-	///id
-	///message_id
-	///conversation_id
+	///event 
+	///task_id 
+	///id 
+	///message_id 
+	///conversation_id 
 	///created_at
+	///answer
 	////////blocking/////////
 	///mode
-	///answer
 	///metadata(用不着应该)
 	////////////////////////// 解析JSON /////////////////////////
 	FDifyChatResponse difyChatResponse;
 	
-	difyChatResponse.event			= JsonObject->GetStringField(TEXT("event"));
+	difyChatResponse.event = JsonObject->GetStringField(TEXT("event"));
+
+	//message_end事件，不需要解析,等结束就行了
+	if(difyChatResponse.event == "message_end")
+    {
+        return;
+    }
+
+
+	
 	difyChatResponse.task_id		= JsonObject->GetStringField(TEXT("task_id"));
 	difyChatResponse.id				= JsonObject->GetStringField(TEXT("id"));
 	difyChatResponse.message_id		= JsonObject->GetStringField(TEXT("message_id"));
 	difyChatResponse.conversation_id= JsonObject->GetStringField(TEXT("conversation_id"));
-	difyChatResponse.mode			= JsonObject->GetStringField(TEXT("mode"));
-	difyChatResponse.answer			= JsonObject->GetStringField(TEXT("answer"));
 	difyChatResponse.created_at		= JsonObject->GetStringField(TEXT("created_at"));
 	difyChatResponse.ChatName		= ChatName;
+	difyChatResponse.answer			= JsonObject->GetStringField(TEXT("answer"));
 
+	// 阻塞模式下，还有mode字段
+	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+	{
+		difyChatResponse.mode = JsonObject->GetStringField(TEXT("mode"));
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("\n[event]:\n%s"), *difyChatResponse.event);
+	UE_LOG(LogTemp, Log, TEXT("\n[answer]:\n%s"), *difyChatResponse.answer);
+
+	
 	//保存ConversationID
 	ConversationID = difyChatResponse.conversation_id;
 	
 	//解析完毕，可以再次发送请求
 	bIsWaitingDifyResponse = false;
 
+
+	OnDifyChatResponding.Broadcast(difyChatResponse);
+
 	// 阻塞模式 或者 事件为message_end时 说明返回结束
-	bool bIsMessageEnd = false;
-	bIsMessageEnd = (DifyChatResponseMode == EDifyChatResponseMode::Blocking) || 
-		(difyChatResponse.event == "message_end");
+	//bool bIsMessageEnd = false;
+	//bIsMessageEnd = (DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+					//|| (difyChatResponse.event == "message_end");
 	
 	//UE_LOG(LogTemp, Log, TEXT("[event]:\n%s"), *difyChatResponse.event);
 	
 	
 	//广播委托,让蓝图使用
 
-	if(!bIsMessageEnd)
-		OnDifyChatResponding.Broadcast(difyChatResponse);
-	else
-		OnDifyChatResponded.Broadcast(difyChatResponse);
+	//if(!bIsMessageEnd)
+	//	OnDifyChatResponding.Broadcast(difyChatResponse);
+	//else
+	//	OnDifyChatResponded.Broadcast(difyChatResponse);
 
 
 	

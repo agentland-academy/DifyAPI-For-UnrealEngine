@@ -128,6 +128,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	EDifyChatType DifyChatType;
 
+	//回应类型，Streaming or Blocking
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	EDifyChatResponseMode DifyChatResponseMode;
 
