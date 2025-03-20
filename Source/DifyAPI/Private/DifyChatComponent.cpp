@@ -4,7 +4,6 @@
 #include "DifyChatComponent.h"
 
 #include "HttpModule.h"
-#include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
@@ -19,6 +18,7 @@ UDifyChatComponent::UDifyChatComponent()
 	UserName = "Player255";
 	DifyChatType = EDifyChatType::SingleChat;
 	ConversationID = "";
+	DifyChatResponseMode = EDifyChatResponseMode::Blocking;
 }
 
 
@@ -41,6 +41,8 @@ void UDifyChatComponent::BeginPlay()
 //----------------------------------------------------
 void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 {
+	////////////////////////////////// 设置请求的内容 ////////////////////////////////
+	
 	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
 
 	HttpRequest->SetURL(DifyURL);
@@ -56,7 +58,17 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
 	JsonObject->SetObjectField(TEXT("inputs"), MakeShareable(new FJsonObject));
 	JsonObject->SetStringField(TEXT("query"), _Message);
-	JsonObject->SetStringField(TEXT("response_mode"), TEXT("blocking"));
+
+
+	FString responseMode = "";
+
+	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+		responseMode = "blocking";
+	else
+		responseMode = "streaming";
+	
+	//流式 or 阻塞
+	JsonObject->SetStringField(TEXT("response_mode"), responseMode);
 
 	//如果是单聊，就不传conversation_id
 	FString conversation_id = "";
@@ -79,31 +91,104 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	// 设置请求内容
 	HttpRequest->SetContentAsString(OutputString);
 
-	// 绑定回调函数
+
+	////////////////////////////////// 绑定Dify【响应时】的回调 ////////////////////////////////
+	
+	HttpRequest->OnRequestProgress64().BindLambda([this](const FHttpRequestPtr& _Request, uint64 _BytesSent, uint64 _BytesReceived)
+	{
+		UE_LOG(LogTemp, Log, TEXT("BytesSent: %llu, BytesReceived: %llu"), _BytesSent, _BytesReceived);
+		OnDifyResponding(_Request);
+	});
+	
+	////////////////////////////////// 绑定Dify【响应后】的回调 ////////////////////////////////
+
 	HttpRequest->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 	{
-		if (bWasSuccessful && Response.IsValid())
-		{
-			FString logText =
-				"[DifyChat]:\nCode：" + Response->GetResponseCode();
-			logText+= "\n" + Response->GetContentAsString();
-			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
-		}
-		else
-		{
-			FString logText = "[DifyChat]:\nRequest failed";
-			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
-		}
-		//解析返回的数据，然后直接广播委托
-		ParseDifyResponse(Response->GetContentAsString());
-		
-		//OnDifyChatResponse.Broadcast(*Response->GetContentAsString());
-		
+		OnDifyResponded();
 	});
+	
+	////////////////////////////////// 发送请求 ////////////////////////////////
 
 	HttpRequest->ProcessRequest();
-	
 }
+
+
+//----------------------------------------------------
+// 目的：在Dify回复时，获取返回的源数据
+//----------------------------------------------------
+void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
+{
+	const FHttpResponsePtr response = _Request->GetResponse();
+
+	//不存在就说明请求失败
+	if(!response.IsValid())
+	{
+		FString logText = "[DifyChat]:\nRequest failed";
+		UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+		return ;
+	}
+
+	//获取返回的字符串格式的数据
+	FString responseString = response->GetContentAsString();
+	
+	//如果是blocking模式，直接解析数据
+	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+	{
+		ParseDifyResponse(responseString);
+		return ;
+	}
+
+	//如果是streaming模式，一条条解析
+		
+	TArray<FString> dataBlocks;
+
+	//用正则匹配data:{...}
+	const FRegexPattern difyResponsePattern(TEXT("\\{\"event\": \"message\".*?\\}"));//"data: \\{.*?\\}"
+	FRegexMatcher difyResponseMatcher(difyResponsePattern, responseString);
+
+	// 这里应该可以优化，但是我不知道怎么搞:)
+	while (difyResponseMatcher.FindNext())
+	{
+		FString match = difyResponseMatcher.GetCaptureGroup(0);
+		dataBlocks.Add(match);
+	}
+		
+
+	//UE_LOG(LogTemp, Log, TEXT("[DataBlocks]:%s"),*responseString);
+		
+	int testI = dataBlocks.Num();
+	UE_LOG(LogTemp, Log, TEXT("[DataBlocks.Num]:%d"),testI);
+
+	//有时会同时新返回多个data{}，所以要用循环
+	for(int i = LastDataBlocksIndex; i < dataBlocks.Num(); i++)
+	{
+		responseString = dataBlocks[i];
+			
+		//解析返回的数据，然后直接广播委托
+		ParseDifyResponse(responseString);
+	}
+		
+	//更新索引
+	if(dataBlocks.Num() > LastDataBlocksIndex) // 有时返回是空的，一行都没有
+		LastDataBlocksIndex = dataBlocks.Num();
+}
+
+
+//----------------------------------------------------
+// 目的：在Dify回复结束后，广播委托，重置属性
+//----------------------------------------------------
+void UDifyChatComponent::OnDifyResponded()
+{
+	//广播【响应后】委托
+	OnDifyChatResponded.Broadcast();
+
+	//下一轮的返回索引当然从0开始
+	LastDataBlocksIndex = 0;
+		
+	//设置为不在等待返回
+	bIsWaitingDifyResponse = false;
+}
+
 
 //----------------------------------------------------
 // 目的：解析Dify返回的数据,并广播委托
@@ -115,53 +200,79 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(_Response);
 	if (!FJsonSerializer::Deserialize(Reader, JsonObject))
 	{
+		//_Response
+		UE_LOG(LogTemp, Error, TEXT("[Error_Response]:\n%s"), *_Response);
 		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON"));
 		return;
 	}
 
 	////////////////////////// JSON参考 //////////////////////////
-	///event
-	///task_id
-	///id
-	///message_id
-	///conversation_id
-	///mode
-	///answer
-	///metadata(用不着应该)
+	///event 
+	///task_id 
+	///id 
+	///message_id 
+	///conversation_id 
 	///created_at
+	///answer
+	////////blocking/////////
+	///mode
+	///metadata(用不着应该)
 	////////////////////////// 解析JSON /////////////////////////
 	FDifyChatResponse difyChatResponse;
 	
-	difyChatResponse.event			= JsonObject->GetStringField(TEXT("event"));
+	difyChatResponse.event = JsonObject->GetStringField(TEXT("event"));
+
+	//message_end事件解析不过，不用再次判断
+	//message_end事件，不需要解析,等结束就行了
+	//if(difyChatResponse.event == "message_end")
+    //{
+    //    return;
+    //}
+	
 	difyChatResponse.task_id		= JsonObject->GetStringField(TEXT("task_id"));
 	difyChatResponse.id				= JsonObject->GetStringField(TEXT("id"));
 	difyChatResponse.message_id		= JsonObject->GetStringField(TEXT("message_id"));
 	difyChatResponse.conversation_id= JsonObject->GetStringField(TEXT("conversation_id"));
-	difyChatResponse.mode			= JsonObject->GetStringField(TEXT("mode"));
-	difyChatResponse.answer			= JsonObject->GetStringField(TEXT("answer"));
 	difyChatResponse.created_at		= JsonObject->GetStringField(TEXT("created_at"));
 	difyChatResponse.ChatName		= ChatName;
+	difyChatResponse.answer			= JsonObject->GetStringField(TEXT("answer"));
 
+	// 阻塞模式下，还有mode字段
+	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
+	{
+		difyChatResponse.mode = JsonObject->GetStringField(TEXT("mode"));
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("\n[event]:\n%s"), *difyChatResponse.event);
+	UE_LOG(LogTemp, Log, TEXT("\n[answer]:\n%s"), *difyChatResponse.answer);
+
+	
 	//保存ConversationID
 	ConversationID = difyChatResponse.conversation_id;
+
+	//广播【响应时】委托
+	OnDifyChatResponding.Broadcast(difyChatResponse);
 	
-	//解析完毕，可以再次发送请求
-	bIsWaitingDifyResponse = false;
-
-	//广播委托,让蓝图使用
-	OnDifyChatResponse.Broadcast(difyChatResponse);
 }
 
+//----------------------------------------------------
+// 目的：在一个节点里初始化DifyChat
+//----------------------------------------------------
 void UDifyChatComponent::InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
-		EDifyChatType _DifyChatType)
+		EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode)
 {
-	DifyURL			= _DifyURL;
-	DifyAPIKey		= _DifyAPIKey;
-	ChatName		= _ChatName;
-	UserName		= _UserName;
-	DifyChatType	= _DifyChatType;
+	DifyURL					= _DifyURL;
+	DifyAPIKey				= _DifyAPIKey;
+	ChatName				= _ChatName;
+	UserName				= _UserName;
+	DifyChatType			= _DifyChatType;
+	DifyChatResponseMode	= _DifyChatResponseMode;
 }
 
+
+//----------------------------------------------------
+// 目的：向Dify发送消息
+//----------------------------------------------------
 void UDifyChatComponent::TalkToAI(FString _Message)
 {
 	//如果上一个还没返回，就不发送
@@ -175,7 +286,7 @@ void UDifyChatComponent::TalkToAI(FString _Message)
 	SentDifyPostRequest(_Message);
 	bIsWaitingDifyResponse = true;
 
-	//广播委托,让蓝图使用
+	//广播[向Dify对话后]委托
 	OnDifyChatTalkTo.Broadcast(UserName, _Message);
 }
 

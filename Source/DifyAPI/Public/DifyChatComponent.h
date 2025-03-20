@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Interfaces/IHttpRequest.h"
 #include "DifyChatComponent.generated.h"
 
 //Dify返回的数据结构
@@ -12,41 +13,45 @@ struct FDifyChatResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString event;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString task_id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString message_id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString conversation_id;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString mode;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString answer;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString created_at;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString ChatName;
 };
 
-//委托,在dify返回数据后能够让蓝图使用
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatResponseDelegate, FDifyChatResponse, Response);
+//委托,在[dify返回后]
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDifyChatRespondedDelegate);
 
-//委托,在向dify发送数据后能够让蓝图使用
+//委托,在[dify返回时]
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatRespondingDelegate, FDifyChatResponse, Response);
+
+//委托,在[向dify发送数据后]
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDifyChatTalkToDelegate, FString, UserName , FString, Message);
 
 
+//单轮对话 or 多轮对话
 UENUM(BlueprintType)
 enum class EDifyChatType : uint8
 {
@@ -55,6 +60,13 @@ enum class EDifyChatType : uint8
 };
 
 
+//流式 or 阻塞
+UENUM(BlueprintType)
+enum class EDifyChatResponseMode : uint8
+{
+	Streaming  UMETA(DisplayName = "Streaming"),
+	Blocking  UMETA(DisplayName = "Blocking")
+};
 
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -75,6 +87,12 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SentDifyPostRequest(FString _Message);
 
+	//收到Dify响应时的回调
+	void OnDifyResponding(const FHttpRequestPtr& _Request);
+	
+	//收到Dify响应后的回调
+	void OnDifyResponded();
+	
 	// 解析Dify返回的数据
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void ParseDifyResponse(FString _Response);
@@ -96,7 +114,8 @@ public:
 
 	//初始化ChatAI,刚创建时就用这个
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
-	void InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName, EDifyChatType _DifyChatType);
+	void InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
+						EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode);
 	
 
 	/////////////////////ChatAI的功能/////////////////////
@@ -115,9 +134,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString DifyAPIKey;
 	
-	//对话类型
+	//对话类型，单次 or 多轮
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	EDifyChatType DifyChatType;
+
+	//回应类型，Streaming or Blocking
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	EDifyChatResponseMode DifyChatResponseMode;
 
 	//对话名字
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
@@ -129,9 +152,15 @@ protected:
 	
 	///////////////////// 委托 /////////////////////
 
-	//Dify回应
+	//Dify回应时
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
-	FDifyChatResponseDelegate OnDifyChatResponse;
+	FDifyChatRespondingDelegate OnDifyChatResponding;
+
+	//Dify回应后
+	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
+	FDifyChatRespondedDelegate OnDifyChatResponded;
+	
+	
 	//向Dify对话
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatTalkToDelegate OnDifyChatTalkTo;
@@ -139,12 +168,18 @@ protected:
 	///////////////////// 参数 /////////////////////
 
 	//是否正在等待Dify返回
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(BlueprintReadOnly, Category = "DifyChat")
 	bool bIsWaitingDifyResponse = false;
 	
 	//对话ID（只在多轮对话中有用）
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString ConversationID;
+
+	/*
+	 在streaming模式下，当前返回的和之前返回的内容都在一起。但是并不是每一次都只多返回一个，
+	 所以需要一个额外的索引记录上一次返回到哪里了。
+	 */
+	int LastDataBlocksIndex = 0;
 	
 };
 
