@@ -7,6 +7,22 @@
 #include "Interfaces/IHttpRequest.h"
 #include "DifyChatComponent.generated.h"
 
+
+//额外的输入
+USTRUCT(BlueprintType)
+struct FDifyChatInputs
+{
+    GENERATED_USTRUCT_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    FString Key;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    FString Value;
+};
+
+
+
 //Dify返回的数据结构
 USTRUCT(BlueprintType)
 struct FDifyChatResponse
@@ -111,11 +127,13 @@ public:
 	//玩家名字
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SetUserName(FString _UserName) { UserName = _UserName; }
-
+	
 	//初始化ChatAI,刚创建时就用这个
-	UFUNCTION(BlueprintCallable, Category = "DifyChat")
+	UFUNCTION(BlueprintCallable, Category = "DifyChat" )
 	void InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
-						EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode);
+						EDifyChatType _DifyChatType,
+						EDifyChatResponseMode _DifyChatResponseMode,
+						TArray<FDifyChatInputs> _DifyInputs);
 	
 
 	/////////////////////ChatAI的功能/////////////////////
@@ -133,6 +151,10 @@ protected:
 	//Dify的API密钥
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString DifyAPIKey;
+
+	//额外的输入
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	TArray<FDifyChatInputs> DifyInputs;
 	
 	//对话类型，单次 or 多轮
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
