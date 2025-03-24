@@ -97,6 +97,8 @@ public:
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
+
+	virtual void BeginDestroy() override;
 	
 	
 	//像Dify发送Post请求
@@ -114,7 +116,7 @@ protected:
 	void ParseDifyResponse(FString _Response);
 
 public:
-	/////////////////////设置ChatAI的基本属性/////////////////////
+	/////////////////////设置ChatAI的基本属性设置函数/////////////////////
 
 	//名字
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
@@ -154,14 +156,14 @@ protected:
 
 	//额外的输入
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
-	TArray<FDifyChatInputs> DifyInputs;
+	TArray<FDifyChatInputs> DifyInputs = {};
 	
 	//对话类型，单次 or 多轮
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	EDifyChatType DifyChatType;
 
 	//回应类型，Streaming or Blocking
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat", meta=(AllowPrivateAccess="true"))
 	EDifyChatResponseMode DifyChatResponseMode;
 
 	//对话名字
@@ -202,6 +204,9 @@ protected:
 	 所以需要一个额外的索引记录上一次返回到哪里了。
 	 */
 	int LastDataBlocksIndex = 0;
+
+	//当前的Http请求
+	TSharedPtr<IHttpRequest> CurrentHttpRequest;
 	
 };
 

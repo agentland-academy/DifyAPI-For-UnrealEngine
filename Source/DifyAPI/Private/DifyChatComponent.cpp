@@ -34,6 +34,16 @@ void UDifyChatComponent::BeginPlay()
 	
 }
 
+void UDifyChatComponent::BeginDestroy()
+{
+	//如果请求还在进行，先取消
+	if(CurrentHttpRequest.IsValid())
+	{
+		CurrentHttpRequest->CancelRequest();
+		CurrentHttpRequest.Reset();
+	}
+	Super::BeginDestroy();
+}
 
 
 //----------------------------------------------------
@@ -43,15 +53,17 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 {
 	////////////////////////////////// 设置请求的内容 ////////////////////////////////
 	
-	TSharedRef<IHttpRequest, ESPMode::ThreadSafe> HttpRequest = FHttpModule::Get().CreateRequest();
+	CurrentHttpRequest = FHttpModule::Get().CreateRequest();
 
-	HttpRequest->SetURL(DifyURL);
-	HttpRequest->SetVerb(TEXT("POST"));
+	 
+	
+	CurrentHttpRequest->SetURL(DifyURL);
+	CurrentHttpRequest->SetVerb(TEXT("POST"));
 
 	//KEY
 	FString authorization = "Bearer " + DifyAPIKey;
-	HttpRequest->SetHeader(TEXT("Authorization"), authorization);
-	HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	CurrentHttpRequest->SetHeader(TEXT("Authorization"), authorization);
+	CurrentHttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
 
@@ -101,37 +113,44 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
 
 	// 设置请求内容
-	HttpRequest->SetContentAsString(OutputString);
+	CurrentHttpRequest->SetContentAsString(OutputString);
 
 
 	////////////////////////////////// 绑定Dify【响应时】的回调 ////////////////////////////////
 	
-	HttpRequest->OnRequestProgress64().BindLambda([this](const FHttpRequestPtr& _Request, uint64 _BytesSent, uint64 _BytesReceived)
+	CurrentHttpRequest->OnRequestProgress64().BindLambda(
+	[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
+		(const FHttpRequestPtr& _Request, uint64 _BytesSent, uint64 _BytesReceived)
 	{
 		UE_LOG(LogTemp, Log, TEXT("BytesSent: %llu, BytesReceived: %llu"), _BytesSent, _BytesReceived);
-		OnDifyResponding(_Request);
+
+		if(WeakThis.IsValid())
+			WeakThis->OnDifyResponding(_Request);
 	});
 	
 	////////////////////////////////// 绑定Dify【响应后】的回调 ////////////////////////////////
 
-	HttpRequest->OnProcessRequestComplete().BindLambda([this](FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+	CurrentHttpRequest->OnProcessRequestComplete().BindLambda(
+		[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
+		(FHttpRequestPtr _Request, FHttpResponsePtr _Response, bool bWasSuccessful)
 	{
-		const int responseCode = Response->GetResponseCode();
+		const int responseCode = _Response->GetResponseCode();
 		// 只有代码为200才是正常响应
 		if(responseCode != 200) 
 		{
 			FString logText = "[DifyChatError]:\nCode:" + FString::FromInt(responseCode);
-			logText+= "\n" + Response->GetContentAsString();
+			logText+= "\n" + _Response->GetContentAsString();
 			//输出报错
 			UE_LOG(LogTemp, Error, TEXT("%s"), *logText);
 		}
-		
-		OnDifyResponded();
+
+		if(WeakThis.IsValid())
+			WeakThis->OnDifyResponded();
 	});
 	
 	////////////////////////////////// 发送请求 ////////////////////////////////
 
-	HttpRequest->ProcessRequest();
+	CurrentHttpRequest->ProcessRequest();
 }
 
 
@@ -311,6 +330,8 @@ void UDifyChatComponent::TalkToAI(FString _Message)
 		UE_LOG(LogTemp, Error, TEXT("[Waiting for the last response]"));
 		return;
 	}
+
+	LastDataBlocksIndex = 0;
 
 	//发送请求,并设置为正在等待返回
 	SentDifyPostRequest(_Message);
