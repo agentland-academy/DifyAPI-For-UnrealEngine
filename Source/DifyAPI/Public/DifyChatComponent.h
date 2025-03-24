@@ -7,6 +7,22 @@
 #include "Interfaces/IHttpRequest.h"
 #include "DifyChatComponent.generated.h"
 
+
+//额外的输入
+USTRUCT(BlueprintType)
+struct FDifyChatInputs
+{
+    GENERATED_USTRUCT_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    FString Key;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    FString Value;
+};
+
+
+
 //Dify返回的数据结构
 USTRUCT(BlueprintType)
 struct FDifyChatResponse
@@ -81,6 +97,8 @@ public:
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
+
+	virtual void BeginDestroy() override;
 	
 	
 	//像Dify发送Post请求
@@ -98,7 +116,7 @@ protected:
 	void ParseDifyResponse(FString _Response);
 
 public:
-	/////////////////////设置ChatAI的基本属性/////////////////////
+	/////////////////////设置ChatAI的基本属性设置函数/////////////////////
 
 	//名字
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
@@ -111,11 +129,13 @@ public:
 	//玩家名字
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SetUserName(FString _UserName) { UserName = _UserName; }
-
+	
 	//初始化ChatAI,刚创建时就用这个
-	UFUNCTION(BlueprintCallable, Category = "DifyChat")
+	UFUNCTION(BlueprintCallable, Category = "DifyChat" )
 	void InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
-						EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode);
+						EDifyChatType _DifyChatType,
+						EDifyChatResponseMode _DifyChatResponseMode,
+						TArray<FDifyChatInputs> _DifyInputs);
 	
 
 	/////////////////////ChatAI的功能/////////////////////
@@ -133,13 +153,17 @@ protected:
 	//Dify的API密钥
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString DifyAPIKey;
+
+	//额外的输入
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	TArray<FDifyChatInputs> DifyInputs = {};
 	
 	//对话类型，单次 or 多轮
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	EDifyChatType DifyChatType;
 
 	//回应类型，Streaming or Blocking
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat", meta=(AllowPrivateAccess="true"))
 	EDifyChatResponseMode DifyChatResponseMode;
 
 	//对话名字
@@ -180,6 +204,9 @@ protected:
 	 所以需要一个额外的索引记录上一次返回到哪里了。
 	 */
 	int LastDataBlocksIndex = 0;
+
+	//当前的Http请求
+	TSharedPtr<IHttpRequest> CurrentHttpRequest;
 	
 };
 
