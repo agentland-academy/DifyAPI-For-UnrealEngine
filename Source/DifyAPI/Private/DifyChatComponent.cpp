@@ -338,7 +338,7 @@ void UDifyChatComponent::TalkToAI(FString _Message)
 	bIsWaitingDifyResponse = true;
 
 	//广播[向Dify对话后]委托
-	OnDifyChatTalkTo.Broadcast(UserName, _Message);
+	OnDifyChatTalkTo.Broadcast(UserName,ChatName, _Message);
 }
 
 

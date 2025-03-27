@@ -64,7 +64,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDifyChatRespondedDelegate);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatRespondingDelegate, FDifyChatResponse, Response);
 
 //委托,在[向dify发送数据后]
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDifyChatTalkToDelegate, FString, UserName , FString, Message);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDifyChatTalkToDelegate, FString, UserName , FString, ChatName ,FString, Message);
 
 
 //单轮对话 or 多轮对话
