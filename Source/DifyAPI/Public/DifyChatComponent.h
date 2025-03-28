@@ -8,7 +8,7 @@
 #include "DifyChatComponent.generated.h"
 
 
-//¶îÍâµÄÊäÈë
+//é¢å¤–çš„è¾“å…¥
 USTRUCT(BlueprintType)
 struct FDifyChatInputs
 {
@@ -23,7 +23,7 @@ struct FDifyChatInputs
 
 
 
-//Dify·µ»ØµÄÊı¾İ½á¹¹
+//Difyè¿”å›çš„æ•°æ®ç»“æ„
 USTRUCT(BlueprintType)
 struct FDifyChatResponse
 {
@@ -57,17 +57,17 @@ struct FDifyChatResponse
 	FString ChatName;
 };
 
-//Î¯ÍĞ,ÔÚ[dify·µ»Øºó]
+//å§”æ‰˜,åœ¨[difyè¿”å›å]
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDifyChatRespondedDelegate);
 
-//Î¯ÍĞ,ÔÚ[dify·µ»ØÊ±]
+//å§”æ‰˜,åœ¨[difyè¿”å›æ—¶]
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatRespondingDelegate, FDifyChatResponse, Response);
 
-//Î¯ÍĞ,ÔÚ[Ïòdify·¢ËÍÊı¾İºó]
+//å§”æ‰˜,åœ¨[å‘difyå‘é€æ•°æ®å]
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FDifyChatTalkToDelegate, FString, UserName , FString, ChatName ,FString, Message);
 
 
-//µ¥ÂÖ¶Ô»° or ¶àÂÖ¶Ô»°
+//å•è½®å¯¹è¯ or å¤šè½®å¯¹è¯
 UENUM(BlueprintType)
 enum class EDifyChatType : uint8
 {
@@ -76,7 +76,7 @@ enum class EDifyChatType : uint8
 };
 
 
-//Á÷Ê½ or ×èÈû
+//æµå¼ or é˜»å¡
 UENUM(BlueprintType)
 enum class EDifyChatResponseMode : uint8
 {
@@ -101,36 +101,36 @@ protected:
 	virtual void BeginDestroy() override;
 	
 	
-	//ÏñDify·¢ËÍPostÇëÇó
+	//åƒDifyå‘é€Postè¯·æ±‚
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SentDifyPostRequest(FString _Message);
 
-	//ÊÕµ½DifyÏìÓ¦Ê±µÄ»Øµ÷
+	//æ”¶åˆ°Difyå“åº”æ—¶çš„å›è°ƒ
 	void OnDifyResponding(const FHttpRequestPtr& _Request);
 	
-	//ÊÕµ½DifyÏìÓ¦ºóµÄ»Øµ÷
+	//æ”¶åˆ°Difyå“åº”åçš„å›è°ƒ
 	void OnDifyResponded();
 	
-	// ½âÎöDify·µ»ØµÄÊı¾İ
+	// è§£æDifyè¿”å›çš„æ•°æ®
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void ParseDifyResponse(FString _Response);
 
 public:
-	/////////////////////ÉèÖÃChatAIµÄ»ù±¾ÊôĞÔÉèÖÃº¯Êı/////////////////////
+	/////////////////////è®¾ç½®ChatAIçš„åŸºæœ¬å±æ€§è®¾ç½®å‡½æ•°/////////////////////
 
-	//Ãû×Ö
+	//åå­—
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SetChatName(FString _ChatName) { ChatName = _ChatName; }
 
-	//¶Ô»°ÀàĞÍ
+	//å¯¹è¯ç±»å‹
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SetDifyChatType(EDifyChatType _DifyChatType) { DifyChatType = _DifyChatType; }
 
-	//Íæ¼ÒÃû×Ö
+	//ç©å®¶åå­—
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SetUserName(FString _UserName) { UserName = _UserName; }
 	
-	//³õÊ¼»¯ChatAI,¸Õ´´½¨Ê±¾ÍÓÃÕâ¸ö
+	//åˆå§‹åŒ–ChatAI,åˆšåˆ›å»ºæ—¶å°±ç”¨è¿™ä¸ª
 	UFUNCTION(BlueprintCallable, Category = "DifyChat" )
 	void InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
 						EDifyChatType _DifyChatType,
@@ -138,74 +138,74 @@ public:
 						TArray<FDifyChatInputs> _DifyInputs);
 	
 
-	/////////////////////ChatAIµÄ¹¦ÄÜ/////////////////////
+	/////////////////////ChatAIçš„åŠŸèƒ½/////////////////////
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void TalkToAI(FString _Message);
 	
 
 protected:
-	///////////////////// »ù±¾ÊôĞÔ /////////////////////
+	///////////////////// åŸºæœ¬å±æ€§ /////////////////////
 
-	//DifyµÄURL
+	//Difyçš„URL
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString DifyURL;
 
-	//DifyµÄAPIÃÜÔ¿
+	//Difyçš„APIå¯†é’¥
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString DifyAPIKey;
 
-	//¶îÍâµÄÊäÈë
+	//é¢å¤–çš„è¾“å…¥
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	TArray<FDifyChatInputs> DifyInputs = {};
 	
-	//¶Ô»°ÀàĞÍ£¬µ¥´Î or ¶àÂÖ
+	//å¯¹è¯ç±»å‹ï¼Œå•æ¬¡ or å¤šè½®
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	EDifyChatType DifyChatType;
 
-	//»ØÓ¦ÀàĞÍ£¬Streaming or Blocking
+	//å›åº”ç±»å‹ï¼ŒStreaming or Blocking
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat", meta=(AllowPrivateAccess="true"))
 	EDifyChatResponseMode DifyChatResponseMode;
 
-	//¶Ô»°Ãû×Ö
+	//å¯¹è¯åå­—
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString ChatName;
 
-	//Íæ¼ÒÃû×Ö
+	//ç©å®¶åå­—
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString UserName;
 	
-	///////////////////// Î¯ÍĞ /////////////////////
+	///////////////////// å§”æ‰˜ /////////////////////
 
-	//Dify»ØÓ¦Ê±
+	//Difyå›åº”æ—¶
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatRespondingDelegate OnDifyChatResponding;
 
-	//Dify»ØÓ¦ºó
+	//Difyå›åº”å
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatRespondedDelegate OnDifyChatResponded;
 	
 	
-	//ÏòDify¶Ô»°
+	//å‘Difyå¯¹è¯
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatTalkToDelegate OnDifyChatTalkTo;
 
-	///////////////////// ²ÎÊı /////////////////////
+	///////////////////// å‚æ•° /////////////////////
 
-	//ÊÇ·ñÕıÔÚµÈ´ıDify·µ»Ø
+	//æ˜¯å¦æ­£åœ¨ç­‰å¾…Difyè¿”å›
 	UPROPERTY(BlueprintReadOnly, Category = "DifyChat")
 	bool bIsWaitingDifyResponse = false;
 	
-	//¶Ô»°ID£¨Ö»ÔÚ¶àÂÖ¶Ô»°ÖĞÓĞÓÃ£©
+	//å¯¹è¯IDï¼ˆåªåœ¨å¤šè½®å¯¹è¯ä¸­æœ‰ç”¨ï¼‰
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString ConversationID;
 
 	/*
-	 ÔÚstreamingÄ£Ê½ÏÂ£¬µ±Ç°·µ»ØµÄºÍÖ®Ç°·µ»ØµÄÄÚÈİ¶¼ÔÚÒ»Æğ¡£µ«ÊÇ²¢²»ÊÇÃ¿Ò»´Î¶¼Ö»¶à·µ»ØÒ»¸ö£¬
-	 ËùÒÔĞèÒªÒ»¸ö¶îÍâµÄË÷Òı¼ÇÂ¼ÉÏÒ»´Î·µ»Øµ½ÄÄÀïÁË¡£
+	 åœ¨streamingæ¨¡å¼ä¸‹ï¼Œå½“å‰è¿”å›çš„å’Œä¹‹å‰è¿”å›çš„å†…å®¹éƒ½åœ¨ä¸€èµ·ã€‚ä½†æ˜¯å¹¶ä¸æ˜¯æ¯ä¸€æ¬¡éƒ½åªå¤šè¿”å›ä¸€ä¸ªï¼Œ
+	 æ‰€ä»¥éœ€è¦ä¸€ä¸ªé¢å¤–çš„ç´¢å¼•è®°å½•ä¸Šä¸€æ¬¡è¿”å›åˆ°å“ªé‡Œäº†ã€‚
 	 */
 	int LastDataBlocksIndex = 0;
 
-	//µ±Ç°µÄHttpÇëÇó
+	//å½“å‰çš„Httpè¯·æ±‚
 	TSharedPtr<IHttpRequest> CurrentHttpRequest;
 	
 };
