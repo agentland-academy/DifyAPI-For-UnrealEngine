@@ -85,7 +85,7 @@ enum class EDifyChatResponseMode : uint8
 };
 
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS( ClassGroup=(Agent), meta=(BlueprintSpawnableComponent) )
 class DIFYAPI_API UDifyChatComponent : public UActorComponent
 {
 	GENERATED_BODY()
