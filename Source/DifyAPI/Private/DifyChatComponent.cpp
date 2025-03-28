@@ -36,7 +36,7 @@ void UDifyChatComponent::BeginPlay()
 
 void UDifyChatComponent::BeginDestroy()
 {
-	//Èç¹ûÇëÇó»¹ÔÚ½øĞĞ£¬ÏÈÈ¡Ïû
+	//å¦‚æœè¯·æ±‚è¿˜åœ¨è¿›è¡Œï¼Œå…ˆå–æ¶ˆ
 	if(CurrentHttpRequest.IsValid())
 	{
 		CurrentHttpRequest->CancelRequest();
@@ -47,11 +47,11 @@ void UDifyChatComponent::BeginDestroy()
 
 
 //----------------------------------------------------
-// Ä¿µÄ£ºÏòDify·¢ËÍPostÇëÇó
+// ç›®çš„ï¼šå‘Difyå‘é€Postè¯·æ±‚
 //----------------------------------------------------
 void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 {
-	////////////////////////////////// ÉèÖÃÇëÇóµÄÄÚÈİ ////////////////////////////////
+	////////////////////////////////// è®¾ç½®è¯·æ±‚çš„å†…å®¹ ////////////////////////////////
 	
 	CurrentHttpRequest = FHttpModule::Get().CreateRequest();
 
@@ -68,7 +68,7 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
 
 
-	//  "inputs": {"Prompt": "½ÇÉ«Éè¶¨£º\rÉí·İ±³¾°\r2070Äê´ú´«ÆæÒ¡¹öĞ¡×Ó/¿Ö²À·Ö×Ó\rÇ°¾üÓÃ¿Æ¼¼ÌØ¹¤"}
+	//  "inputs": {"Prompt": "è§’è‰²è®¾å®šï¼š\rèº«ä»½èƒŒæ™¯\r2070å¹´ä»£ä¼ å¥‡æ‘‡æ»šå°å­/ææ€–åˆ†å­\rå‰å†›ç”¨ç§‘æŠ€ç‰¹å·¥"}
 	
 	//Inputs
 	TSharedPtr<FJsonObject> InputsObject = MakeShareable(new FJsonObject);
@@ -84,7 +84,7 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	//Query
 	JsonObject->SetStringField(TEXT("query"), _Message);
 
-	//Á÷Ê½ or ×èÈû
+	//æµå¼ or é˜»å¡
 	FString responseMode = "";
 	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
 		responseMode = "blocking";
@@ -93,7 +93,7 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	JsonObject->SetStringField(TEXT("response_mode"), responseMode);
 	
 	
-	//Èç¹ûÊÇµ¥ÁÄ£¬¾Í²»´«conversation_id
+	//å¦‚æœæ˜¯å•èŠï¼Œå°±ä¸ä¼ conversation_id
 	FString conversation_id = "";
 	if(DifyChatType == EDifyChatType::MultiChat)
 		conversation_id = ConversationID;
@@ -105,18 +105,18 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 
 	//FilesArray
 	TArray<TSharedPtr<FJsonValue>> FilesArray;
-	JsonObject->SetArrayField(TEXT("files"), FilesArray);//¿ÕÊı×é
+	JsonObject->SetArrayField(TEXT("files"), FilesArray);//ç©ºæ•°ç»„
 
-	// ½«JSON¶ÔÏó×ª»»Îª×Ö·û´®
+	// å°†JSONå¯¹è±¡è½¬æ¢ä¸ºå­—ç¬¦ä¸²
 	FString OutputString;
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
 
-	// ÉèÖÃÇëÇóÄÚÈİ
+	// è®¾ç½®è¯·æ±‚å†…å®¹
 	CurrentHttpRequest->SetContentAsString(OutputString);
 
 
-	////////////////////////////////// °ó¶¨Dify¡¾ÏìÓ¦Ê±¡¿µÄ»Øµ÷ ////////////////////////////////
+	////////////////////////////////// ç»‘å®šDifyã€å“åº”æ—¶ã€‘çš„å›è°ƒ ////////////////////////////////
 	
 	CurrentHttpRequest->OnRequestProgress64().BindLambda(
 	[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
@@ -128,19 +128,19 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 			WeakThis->OnDifyResponding(_Request);
 	});
 	
-	////////////////////////////////// °ó¶¨Dify¡¾ÏìÓ¦ºó¡¿µÄ»Øµ÷ ////////////////////////////////
+	////////////////////////////////// ç»‘å®šDifyã€å“åº”åã€‘çš„å›è°ƒ ////////////////////////////////
 
 	CurrentHttpRequest->OnProcessRequestComplete().BindLambda(
 		[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
 		(FHttpRequestPtr _Request, FHttpResponsePtr _Response, bool bWasSuccessful)
 	{
 		const int responseCode = _Response->GetResponseCode();
-		// Ö»ÓĞ´úÂëÎª200²ÅÊÇÕı³£ÏìÓ¦
+		// åªæœ‰ä»£ç ä¸º200æ‰æ˜¯æ­£å¸¸å“åº”
 		if(responseCode != 200) 
 		{
 			FString logText = "[DifyChatError]:\nCode:" + FString::FromInt(responseCode);
 			logText+= "\n" + _Response->GetContentAsString();
-			//Êä³ö±¨´í
+			//è¾“å‡ºæŠ¥é”™
 			UE_LOG(LogTemp, Error, TEXT("%s"), *logText);
 		}
 
@@ -148,20 +148,20 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 			WeakThis->OnDifyResponded();
 	});
 	
-	////////////////////////////////// ·¢ËÍÇëÇó ////////////////////////////////
+	////////////////////////////////// å‘é€è¯·æ±‚ ////////////////////////////////
 
 	CurrentHttpRequest->ProcessRequest();
 }
 
 
 //----------------------------------------------------
-// Ä¿µÄ£ºÔÚDify»Ø¸´Ê±£¬»ñÈ¡·µ»ØµÄÔ´Êı¾İ
+// ç›®çš„ï¼šåœ¨Difyå›å¤æ—¶ï¼Œè·å–è¿”å›çš„æºæ•°æ®
 //----------------------------------------------------
 void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 {
 	const FHttpResponsePtr response = _Request->GetResponse();
 
-	//²»´æÔÚ¾ÍËµÃ÷ÇëÇóÊ§°Ü
+	//ä¸å­˜åœ¨å°±è¯´æ˜è¯·æ±‚å¤±è´¥
 	if(!response.IsValid())
 	{
 		FString logText = "[DifyChat]:\nRequest failed";
@@ -175,25 +175,25 @@ void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 
 	
 
-	//»ñÈ¡·µ»ØµÄ×Ö·û´®¸ñÊ½µÄÊı¾İ
+	//è·å–è¿”å›çš„å­—ç¬¦ä¸²æ ¼å¼çš„æ•°æ®
 	FString responseString = response->GetContentAsString();
 	
-	//Èç¹ûÊÇblockingÄ£Ê½£¬Ö±½Ó½âÎöÊı¾İ
+	//å¦‚æœæ˜¯blockingæ¨¡å¼ï¼Œç›´æ¥è§£ææ•°æ®
 	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
 	{
 		ParseDifyResponse(responseString);
 		return ;
 	}
 
-	//Èç¹ûÊÇstreamingÄ£Ê½£¬Ò»ÌõÌõ½âÎö
+	//å¦‚æœæ˜¯streamingæ¨¡å¼ï¼Œä¸€æ¡æ¡è§£æ
 		
 	TArray<FString> dataBlocks;
 
-	//ÓÃÕıÔòÆ¥Åädata:{...}
+	//ç”¨æ­£åˆ™åŒ¹é…data:{...}
 	const FRegexPattern difyResponsePattern(TEXT("\\{\"event\": \"message\".*?\\}"));//"data: \\{.*?\\}"
 	FRegexMatcher difyResponseMatcher(difyResponsePattern, responseString);
 
-	// ÕâÀïÓ¦¸Ã¿ÉÒÔÓÅ»¯£¬µ«ÊÇÎÒ²»ÖªµÀÔõÃ´¸ã:)
+	// è¿™é‡Œåº”è¯¥å¯ä»¥ä¼˜åŒ–ï¼Œä½†æ˜¯æˆ‘ä¸çŸ¥é“æ€ä¹ˆæ:)
 	while (difyResponseMatcher.FindNext())
 	{
 		FString match = difyResponseMatcher.GetCaptureGroup(0);
@@ -206,43 +206,43 @@ void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 	int testI = dataBlocks.Num();
 	UE_LOG(LogTemp, Log, TEXT("[DataBlocks.Num]:%d"),testI);
 
-	//ÓĞÊ±»áÍ¬Ê±ĞÂ·µ»Ø¶à¸ödata{}£¬ËùÒÔÒªÓÃÑ­»·
+	//æœ‰æ—¶ä¼šåŒæ—¶æ–°è¿”å›å¤šä¸ªdata{}ï¼Œæ‰€ä»¥è¦ç”¨å¾ªç¯
 	for(int i = LastDataBlocksIndex; i < dataBlocks.Num(); i++)
 	{
 		responseString = dataBlocks[i];
 			
-		//½âÎö·µ»ØµÄÊı¾İ£¬È»ºóÖ±½Ó¹ã²¥Î¯ÍĞ
+		//è§£æè¿”å›çš„æ•°æ®ï¼Œç„¶åç›´æ¥å¹¿æ’­å§”æ‰˜
 		ParseDifyResponse(responseString);
 	}
 		
-	//¸üĞÂË÷Òı
-	if(dataBlocks.Num() > LastDataBlocksIndex) // ÓĞÊ±·µ»ØÊÇ¿ÕµÄ£¬Ò»ĞĞ¶¼Ã»ÓĞ
+	//æ›´æ–°ç´¢å¼•
+	if(dataBlocks.Num() > LastDataBlocksIndex) // æœ‰æ—¶è¿”å›æ˜¯ç©ºçš„ï¼Œä¸€è¡Œéƒ½æ²¡æœ‰
 		LastDataBlocksIndex = dataBlocks.Num();
 }
 
 
 //----------------------------------------------------
-// Ä¿µÄ£ºÔÚDify»Ø¸´½áÊøºó£¬¹ã²¥Î¯ÍĞ£¬ÖØÖÃÊôĞÔ
+// ç›®çš„ï¼šåœ¨Difyå›å¤ç»“æŸåï¼Œå¹¿æ’­å§”æ‰˜ï¼Œé‡ç½®å±æ€§
 //----------------------------------------------------
 void UDifyChatComponent::OnDifyResponded()
 {
-	//¹ã²¥¡¾ÏìÓ¦ºó¡¿Î¯ÍĞ
+	//å¹¿æ’­ã€å“åº”åã€‘å§”æ‰˜
 	OnDifyChatResponded.Broadcast();
 
-	//ÏÂÒ»ÂÖµÄ·µ»ØË÷Òıµ±È»´Ó0¿ªÊ¼
+	//ä¸‹ä¸€è½®çš„è¿”å›ç´¢å¼•å½“ç„¶ä»0å¼€å§‹
 	LastDataBlocksIndex = 0;
 		
-	//ÉèÖÃÎª²»ÔÚµÈ´ı·µ»Ø
+	//è®¾ç½®ä¸ºä¸åœ¨ç­‰å¾…è¿”å›
 	bIsWaitingDifyResponse = false;
 }
 
 
 //----------------------------------------------------
-// Ä¿µÄ£º½âÎöDify·µ»ØµÄÊı¾İ,²¢¹ã²¥Î¯ÍĞ
+// ç›®çš„ï¼šè§£æDifyè¿”å›çš„æ•°æ®,å¹¶å¹¿æ’­å§”æ‰˜
 //----------------------------------------------------
 void UDifyChatComponent::ParseDifyResponse(FString _Response)
 {
-	////////////////////////// ´´½¨JSON¶ÔÏó //////////////////////////
+	////////////////////////// åˆ›å»ºJSONå¯¹è±¡ //////////////////////////
 	TSharedPtr<FJsonObject> JsonObject;
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(_Response);
 	if (!FJsonSerializer::Deserialize(Reader, JsonObject))
@@ -253,7 +253,7 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 		return;
 	}
 
-	////////////////////////// JSON²Î¿¼ //////////////////////////
+	////////////////////////// JSONå‚è€ƒ //////////////////////////
 	///event 
 	///task_id 
 	///id 
@@ -263,14 +263,14 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	///answer
 	////////blocking/////////
 	///mode
-	///metadata(ÓÃ²»×ÅÓ¦¸Ã)
-	////////////////////////// ½âÎöJSON /////////////////////////
+	///metadata(ç”¨ä¸ç€åº”è¯¥)
+	////////////////////////// è§£æJSON /////////////////////////
 	FDifyChatResponse difyChatResponse;
 	
 	difyChatResponse.event = JsonObject->GetStringField(TEXT("event"));
 
-	//message_endÊÂ¼ş½âÎö²»¹ı£¬²»ÓÃÔÙ´ÎÅĞ¶Ï
-	//message_endÊÂ¼ş£¬²»ĞèÒª½âÎö,µÈ½áÊø¾ÍĞĞÁË
+	//message_endäº‹ä»¶è§£æä¸è¿‡ï¼Œä¸ç”¨å†æ¬¡åˆ¤æ–­
+	//message_endäº‹ä»¶ï¼Œä¸éœ€è¦è§£æ,ç­‰ç»“æŸå°±è¡Œäº†
 	//if(difyChatResponse.event == "message_end")
     //{
     //    return;
@@ -284,7 +284,7 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	difyChatResponse.ChatName		= ChatName;
 	difyChatResponse.answer			= JsonObject->GetStringField(TEXT("answer"));
 
-	// ×èÈûÄ£Ê½ÏÂ£¬»¹ÓĞmode×Ö¶Î
+	// é˜»å¡æ¨¡å¼ä¸‹ï¼Œè¿˜æœ‰modeå­—æ®µ
 	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
 	{
 		difyChatResponse.mode = JsonObject->GetStringField(TEXT("mode"));
@@ -294,16 +294,16 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	UE_LOG(LogTemp, Log, TEXT("\n[answer]:\n%s"), *difyChatResponse.answer);
 
 	
-	//±£´æConversationID
+	//ä¿å­˜ConversationID
 	ConversationID = difyChatResponse.conversation_id;
 
-	//¹ã²¥¡¾ÏìÓ¦Ê±¡¿Î¯ÍĞ
+	//å¹¿æ’­ã€å“åº”æ—¶ã€‘å§”æ‰˜
 	OnDifyChatResponding.Broadcast(difyChatResponse);
 	
 }
 
 //----------------------------------------------------
-// Ä¿µÄ£ºÔÚÒ»¸ö½ÚµãÀï³õÊ¼»¯DifyChat
+// ç›®çš„ï¼šåœ¨ä¸€ä¸ªèŠ‚ç‚¹é‡Œåˆå§‹åŒ–DifyChat
 //----------------------------------------------------
 void UDifyChatComponent::InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
 		EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode, TArray<FDifyChatInputs> _DifyInputs)
@@ -320,11 +320,11 @@ void UDifyChatComponent::InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FSt
 
 
 //----------------------------------------------------
-// Ä¿µÄ£ºÏòDify·¢ËÍÏûÏ¢
+// ç›®çš„ï¼šå‘Difyå‘é€æ¶ˆæ¯
 //----------------------------------------------------
 void UDifyChatComponent::TalkToAI(FString _Message)
 {
-	//Èç¹ûÉÏÒ»¸ö»¹Ã»·µ»Ø£¬¾Í²»·¢ËÍ
+	//å¦‚æœä¸Šä¸€ä¸ªè¿˜æ²¡è¿”å›ï¼Œå°±ä¸å‘é€
 	if (bIsWaitingDifyResponse)
 	{
 		UE_LOG(LogTemp, Error, TEXT("[Waiting for the last response]"));
@@ -333,11 +333,11 @@ void UDifyChatComponent::TalkToAI(FString _Message)
 
 	LastDataBlocksIndex = 0;
 
-	//·¢ËÍÇëÇó,²¢ÉèÖÃÎªÕıÔÚµÈ´ı·µ»Ø
+	//å‘é€è¯·æ±‚,å¹¶è®¾ç½®ä¸ºæ­£åœ¨ç­‰å¾…è¿”å›
 	SentDifyPostRequest(_Message);
 	bIsWaitingDifyResponse = true;
 
-	//¹ã²¥[ÏòDify¶Ô»°ºó]Î¯ÍĞ
+	//å¹¿æ’­[å‘Difyå¯¹è¯å]å§”æ‰˜
 	OnDifyChatTalkTo.Broadcast(UserName,ChatName, _Message);
 }
 
