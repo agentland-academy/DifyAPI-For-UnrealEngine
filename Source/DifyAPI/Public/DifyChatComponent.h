@@ -58,7 +58,7 @@ struct FDifyChatResponse
 };
 
 //委托,在[dify返回后]
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FDifyChatRespondedDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatRespondedDelegate, FDifyChatResponse, Response);
 
 //委托,在[dify返回时]
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatRespondingDelegate, FDifyChatResponse, Response);
@@ -160,7 +160,7 @@ protected:
 	
 	//对话类型，单次 or 多轮
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
-	EDifyChatType DifyChatType;
+	EDifyChatType DifyChatType; 
 
 	//回应类型，Streaming or Blocking
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat", meta=(AllowPrivateAccess="true"))
@@ -173,19 +173,43 @@ protected:
 	//玩家名字
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
 	FString UserName;
-	
-	///////////////////// 委托 /////////////////////
 
-	//Dify回应时
+	//上一轮（本轮）完整的回应内容
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	FDifyChatResponse LastCompletedResponse;
+
+	
+	
+	//===================== 委托 ========================//
+
+	
+	//------------------------------------------
+	// 委托：Dify回应时触发
+	//
+	// 参数：
+	//	- Response：此次响应新增的内容,若是blocking模式则为完整内容
+	//------------------------------------------
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatRespondingDelegate OnDifyChatResponding;
 
-	//Dify回应后
+	//------------------------------------------
+	// 委托：Dify回应结束后触发
+	//
+	// 参数：
+	//	- Response：此次响应的完整内容
+	//------------------------------------------
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatRespondedDelegate OnDifyChatResponded;
 	
 	
-	//向Dify对话
+	//-----------------------------------------------------
+	// 委托：向 Dify 发送数据后触发
+	//
+	// 参数：
+	//	- UserName：与Dify对话的用户名称
+	//	- ChatName：Dify的名字
+	//	- Message：要发送的消息
+	//-----------------------------------------------------
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatTalkToDelegate OnDifyChatTalkTo;
 

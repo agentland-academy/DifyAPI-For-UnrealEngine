@@ -155,7 +155,9 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 
 
 //----------------------------------------------------
-// 目的：在Dify回复时，获取返回的源数据
+// Purpose：在Dify回复时，获取返回的源数据
+// Input：_Request：请求的指针
+// FIXME：应该不用正则也能匹配data:{...}，比如直接换行，但是懒得改：P
 //----------------------------------------------------
 void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 {
@@ -226,8 +228,13 @@ void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 //----------------------------------------------------
 void UDifyChatComponent::OnDifyResponded()
 {
+
+	auto s =  LastCompletedResponse.answer;
+
+	UE_LOG(LogTemp, Log, TEXT("[DifyChatLastCompletedResponse]:\nResponse: %s"), *s);
+
 	//广播【响应后】委托
-	OnDifyChatResponded.Broadcast();
+	OnDifyChatResponded.Broadcast(LastCompletedResponse);
 
 	//下一轮的返回索引当然从0开始
 	LastDataBlocksIndex = 0;
@@ -238,7 +245,10 @@ void UDifyChatComponent::OnDifyResponded()
 
 
 //----------------------------------------------------
-// 目的：解析Dify返回的数据,并广播委托
+// Purpose：解析Dify返回的数据,并广播委托
+//
+// Input：
+//	- _Response：返回的单条json字符串
 //----------------------------------------------------
 void UDifyChatComponent::ParseDifyResponse(FString _Response)
 {
@@ -297,6 +307,13 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	//保存ConversationID
 	ConversationID = difyChatResponse.conversation_id;
 
+	//记录返回内容
+	FString lastCompletedResponseAnswer = LastCompletedResponse.answer;
+	LastCompletedResponse = difyChatResponse;
+	LastCompletedResponse.answer = lastCompletedResponseAnswer + difyChatResponse.answer;
+
+	
+
 	//广播【响应时】委托
 	OnDifyChatResponding.Broadcast(difyChatResponse);
 	
@@ -333,9 +350,10 @@ void UDifyChatComponent::TalkToAI(FString _Message)
 
 	LastDataBlocksIndex = 0;
 
-	//发送请求,并设置为正在等待返回
+	//发送请求,并设置为正在等待返回,重新计算上一轮回复内容
 	SentDifyPostRequest(_Message);
 	bIsWaitingDifyResponse = true;
+	LastCompletedResponse = FDifyChatResponse();
 
 	//广播[向Dify对话后]委托
 	OnDifyChatTalkTo.Broadcast(UserName,ChatName, _Message);
