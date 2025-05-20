@@ -179,6 +179,7 @@ protected:
 	FDifyChatResponse LastCompletedResponse;
 
 	
+public:
 	
 	//===================== 委托 ========================//
 
@@ -213,6 +214,7 @@ protected:
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatTalkToDelegate OnDifyChatTalkTo;
 
+protected:
 	///////////////////// 参数 /////////////////////
 
 	//是否正在等待Dify返回
