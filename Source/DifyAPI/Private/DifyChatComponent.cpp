@@ -46,6 +46,139 @@ void UDifyChatComponent::BeginDestroy()
 }
 
 
+
+TArray<uint8> StringToByte(FString data)
+{
+	TArray<uint8> byteArray;
+	FTCHARToUTF8 Convert(*data);
+	byteArray.Append((uint8*)((ANSICHAR*)Convert.Get()), Convert.Length());
+	return byteArray;
+}
+
+TArray<uint8> FStringToUint8(const FString& InString)
+{
+	TArray<uint8> OutBytes;
+
+	// Handle empty strings
+	if (InString.Len() > 0)
+	{
+		FTCHARToUTF8 Converted(*InString); // Convert to UTF8
+		OutBytes.Append(reinterpret_cast<const uint8*>(Converted.Get()), Converted.Length());
+	}
+
+	return OutBytes;
+}
+
+
+// FString AddData(FString Name, FString Value) {
+// 	return FString(TEXT("\r\n"))
+// 		+ BoundaryBegin
+// 		+ FString(TEXT("Content-Disposition: form-data; name=\""))
+// 		+ Name
+// 		+ FString(TEXT("\"\r\n\r\n"))
+// 		+ Value;
+// }
+
+
+
+
+
+void UDifyChatComponent::SentDifyPostImageRequest()
+{
+	FString fileTestPath = (FPaths::ProjectContentDir() + TEXT("Temp/ForDifyTest/1.jpg"));
+	
+	FString FileName = FPaths::GetCleanFilename(fileTestPath);
+
+	CurrentHttpRequest = FHttpModule::Get().CreateRequest();
+	
+
+	FString url = TEXT("http://103.194.106.155/v1/files/upload");
+	CurrentHttpRequest->SetURL(url);
+	
+	CurrentHttpRequest->SetVerb(TEXT("POST"));
+	
+	//KEY
+	FString authorization = "Bearer " + DifyAPIKey;
+	CurrentHttpRequest->SetHeader(TEXT("Authorization"), authorization);
+
+	
+	FString BoundaryLabel = FGuid::NewGuid().ToString();
+	FString BoundaryBegin = FString(TEXT("--")) + BoundaryLabel + FString(TEXT("\r\n"));
+	FString BoundaryEnd = FString(TEXT("\r\n--")) + BoundaryLabel + FString(TEXT("--\r\n"));
+
+	// Set the content-type for server to know what are we going to send
+	CurrentHttpRequest->SetHeader(TEXT("Content-Type"), FString(TEXT("multipart/form-data; boundary=")) + BoundaryLabel);
+
+	// This is binary content of the request
+	TArray<uint8> CombinedContent;
+
+	TArray<uint8> FileRawData;
+	FFileHelper::LoadFileToArray(FileRawData, *fileTestPath);
+
+
+	
+	// First, we add the boundary for the file, which is different from text payload
+	FString FileBoundaryString = FString(TEXT("\r\n"))
+		+ BoundaryBegin
+		+ FString(TEXT("Content-Disposition: form-data; name=\"file\"; filename=\""))
+		+ FileName + "\"\r\n"
+		+ "Content-Type: image/jpg"
+		+ FString(TEXT("\r\n\r\n"));
+
+	// Notice, we convert all strings into uint8 format using FStringToUint8
+	CombinedContent.Append(FStringToUint8(FileBoundaryString));
+	
+	// Append the file data
+	CombinedContent.Append(FileRawData);
+
+	
+	// Let's add couple of text values to the payload
+	//CombinedContent.Append(FStringToUint8(AddData("IAmAKey", "IamAValue")));
+
+	// Finally, add a boundary at the end of the payload
+	CombinedContent.Append(FStringToUint8(BoundaryEnd));
+	
+	CurrentHttpRequest->SetContent(CombinedContent);
+
+	
+
+	CurrentHttpRequest->OnProcessRequestComplete().BindLambda(
+			[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
+			(FHttpRequestPtr _Request, FHttpResponsePtr _Response, bool bWasSuccessful)
+		{
+				if (bWasSuccessful && _Response.IsValid())
+				{
+					UE_LOG(LogTemp, Log, TEXT("Response: %d %s"), _Response->GetResponseCode(), *_Response->GetContentAsString());
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("Request failed"));
+				}
+		});
+
+
+	
+	//打印RequestContent
+	FString requestContentString = FString((ANSICHAR*)CombinedContent.GetData(), CombinedContent.Num());
+	UE_LOG(LogTemp, Log, TEXT("[114514]\n%s"), *requestContentString);
+	
+	
+
+
+
+	
+	
+	CurrentHttpRequest->ProcessRequest();
+
+
+
+
+	
+
+	return ;
+}
+
+
 //----------------------------------------------------
 // 目的：向Dify发送Post请求
 //----------------------------------------------------
@@ -103,7 +236,7 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	//username
 	JsonObject->SetStringField(TEXT("user"), UserName);
 
-	//FilesArray
+	//Files
 	TArray<TSharedPtr<FJsonValue>> FilesArray;
 	JsonObject->SetArrayField(TEXT("files"), FilesArray);//空数组
 
@@ -115,6 +248,11 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 	// 设置请求内容
 	CurrentHttpRequest->SetContentAsString(OutputString);
 
+
+	
+
+	
+	
 
 	////////////////////////////////// 绑定Dify【响应时】的回调 ////////////////////////////////
 	

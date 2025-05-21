@@ -99,7 +99,10 @@ protected:
 	virtual void BeginPlay() override;
 
 	virtual void BeginDestroy() override;
-	
+
+
+	UFUNCTION(BlueprintCallable, Category = "DifyChat")
+	void SentDifyPostImageRequest();
 	
 	//像Dify发送Post请求
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
@@ -232,7 +235,7 @@ protected:
 	int LastDataBlocksIndex = 0;
 
 	//当前的Http请求
-	TSharedPtr<IHttpRequest> CurrentHttpRequest;
+	TSharedPtr<IHttpRequest,ESPMode::ThreadSafe> CurrentHttpRequest;
 	
 };
 
