@@ -57,6 +57,35 @@ struct FDifyChatResponse
 	FString ChatName;
 };
 
+
+//Dify返回的Image数据结构
+USTRUCT(BlueprintType)
+struct FDifyImageResponse
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyImageResponse")
+	FString ID;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	FString Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	FString Size;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	FString Extension;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	FString Mime_type;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	FString Created_by;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	FString Created_at;
+};
+
 //委托,在[dify返回后]
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDifyChatRespondedDelegate, FDifyChatResponse, Response);
 
@@ -101,10 +130,20 @@ protected:
 	virtual void BeginDestroy() override;
 
 
-	UFUNCTION(BlueprintCallable, Category = "DifyChat")
-	void SentDifyPostImageRequest();
+	// 向Dify服务器发一张图片
+	UFUNCTION(BlueprintCallable, Category = "DifyImage")
+	void SentAnImageToDifyRequest();
+
+	//收到DifyImage响应后的回调
+	void OnDifyImageResponded(FHttpResponsePtr _Response);
+
+	// 解析DifyImage返回的数据
+	UFUNCTION(BlueprintCallable, Category = "DifyImage")
+	void ParseDifyImageResponse(FString _Response, FDifyImageResponse& _OutDifyImageResponse);
+
 	
-	//像Dify发送Post请求
+	
+	//向Dify发送Post请求
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
 	void SentDifyPostRequest(FString _Message);
 
@@ -135,7 +174,7 @@ public:
 	
 	//初始化ChatAI,刚创建时就用这个
 	UFUNCTION(BlueprintCallable, Category = "DifyChat" )
-	void InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
+	void InitDifyChat(FString _DifyChatURL, FString _DifyFileUploadURL,FString _DifyAPIKey, FString _ChatName, FString _UserName,
 						EDifyChatType _DifyChatType,
 						EDifyChatResponseMode _DifyChatResponseMode,
 						TArray<FDifyChatInputs> _DifyInputs);
@@ -150,8 +189,14 @@ protected:
 	///////////////////// 基本属性 /////////////////////
 
 	//Dify的URL
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat",
+		meta=(DisplayName="Dify Chat URL",ToolTip = "http://xxx/v1/chat-messages"))
 	FString DifyURL;
+
+	//Dify服务器的URL,显示名称为“upload”
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat",
+		meta=(DisplayName="Dify File Upload URL",ToolTip = "http://xxx/v1/files/upload"))
+	FString DifyFileUploadURL;
 
 	//Dify的API密钥
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")

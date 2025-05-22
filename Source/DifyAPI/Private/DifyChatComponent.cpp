@@ -82,8 +82,10 @@ TArray<uint8> FStringToUint8(const FString& InString)
 
 
 
-
-void UDifyChatComponent::SentDifyPostImageRequest()
+//--------------------------------------
+// 目的：向Dify发送一张文件(仅支持图片),成功上传后，服务器会返回文件的 ID 和相关信息
+//--------------------------------------
+void UDifyChatComponent::SentAnImageToDifyRequest()
 {
 	FString fileTestPath = (FPaths::ProjectContentDir() + TEXT("Temp/ForDifyTest/1.jpg"));
 	
@@ -91,10 +93,7 @@ void UDifyChatComponent::SentDifyPostImageRequest()
 
 	CurrentHttpRequest = FHttpModule::Get().CreateRequest();
 	
-
-	FString url = TEXT("http://103.194.106.155/v1/files/upload");
-	CurrentHttpRequest->SetURL(url);
-	
+	CurrentHttpRequest->SetURL(DifyFileUploadURL);
 	CurrentHttpRequest->SetVerb(TEXT("POST"));
 	
 	//KEY
@@ -141,42 +140,32 @@ void UDifyChatComponent::SentDifyPostImageRequest()
 	CurrentHttpRequest->SetContent(CombinedContent);
 
 	
+	///////////////////////// 绑定Dify【响应后】的回调 ////////////////////////////////
 
 	CurrentHttpRequest->OnProcessRequestComplete().BindLambda(
-			[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
-			(FHttpRequestPtr _Request, FHttpResponsePtr _Response, bool bWasSuccessful)
+		[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
+		(FHttpRequestPtr _Request, FHttpResponsePtr _Response, bool bWasSuccessful)
+	{
+		const int responseCode = _Response->GetResponseCode();
+		// 只有代码为201才是正常响应
+		if(responseCode != 201) 
 		{
-				if (bWasSuccessful && _Response.IsValid())
-				{
-					UE_LOG(LogTemp, Log, TEXT("Response: %d %s"), _Response->GetResponseCode(), *_Response->GetContentAsString());
-				}
-				else
-				{
-					UE_LOG(LogTemp, Error, TEXT("Request failed"));
-				}
-		});
+			FString logText = "[DifyFileUploadError]:\nCode:" + FString::FromInt(responseCode);
+			logText+= "\n" + _Response->GetContentAsString();
+			//输出报错
+			UE_LOG(LogTemp, Error, TEXT("%s"), *logText);
+		}
 
+		if(WeakThis.IsValid())
+			WeakThis->OnDifyImageResponded(_Response);
+	});
 
-	
-	//打印RequestContent
-	FString requestContentString = FString((ANSICHAR*)CombinedContent.GetData(), CombinedContent.Num());
-	UE_LOG(LogTemp, Log, TEXT("[114514]\n%s"), *requestContentString);
-	
-	
-
-
-
-	
 	
 	CurrentHttpRequest->ProcessRequest();
-
-
-
-
-	
-
 	return ;
 }
+
+
 
 
 //----------------------------------------------------
@@ -292,9 +281,81 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message)
 }
 
 
+
+//----------------------------------------------------
+// Purpose：在Dify收到图像并给出反馈后
+//----------------------------------------------------
+void UDifyChatComponent::OnDifyImageResponded(FHttpResponsePtr _Response)
+{
+	//不存在就说明请求失败
+	if(!_Response.IsValid())
+	{
+		FString logText = "[DifyImageChat]:\nRequest failed";
+		UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+		return ;
+	}
+
+	//获取返回的字符串格式的数据
+	FString responseString = _Response->GetContentAsString();
+	FDifyImageResponse imageResponse;
+	ParseDifyImageResponse(responseString,imageResponse);
+
+	FString imageID = imageResponse.ID;
+	FString imageUser = imageResponse.Created_by;
+
+	UE_LOG(LogTemp, Log, TEXT("[DifyImageChat]:\nID:%s\nUser:%s"), *imageID, *imageUser);
+
+	
+	
+}
+
+void UDifyChatComponent::ParseDifyImageResponse(FString _Response,FDifyImageResponse& _OutDifyImageResponse)
+{
+	////////////////////////// 创建JSON对象 //////////////////////////
+	TSharedPtr<FJsonObject> JsonObject;
+	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(_Response);
+	if (!FJsonSerializer::Deserialize(Reader, JsonObject))
+	{
+		//_Response
+		UE_LOG(LogTemp, Error, TEXT("[Error_Response]:\n%s"), *_Response);
+		UE_LOG(LogTemp, Error, TEXT("Failed to parse JSON"));
+		return;
+	}
+
+	////////////////////////// JSON参考 //////////////////////////
+	///id 
+	///name  
+	///size  
+	///extension  
+	///mime_type  
+	///created_by 
+	///created_at 
+	
+	////////////////////////// 解析JSON /////////////////////////
+	_OutDifyImageResponse.ID			=	JsonObject->GetStringField(TEXT("id"));
+	_OutDifyImageResponse.Name			=	JsonObject->GetStringField(TEXT("name"));
+	_OutDifyImageResponse.Size			=	JsonObject->GetStringField(TEXT("size"));
+	_OutDifyImageResponse.Extension		=	JsonObject->GetStringField(TEXT("extension"));
+	_OutDifyImageResponse.Mime_type		=	JsonObject->GetStringField(TEXT("mime_type"));
+	_OutDifyImageResponse.Created_by	=	JsonObject->GetStringField(TEXT("created_by"));
+	_OutDifyImageResponse.Created_at	=	JsonObject->GetStringField(TEXT("created_at"));
+
+	return ;
+	UE_LOG(LogTemp, Log, TEXT("\n[ImageResponse]"));
+	UE_LOG(LogTemp, Log, TEXT("\n[ID]:%s"), *_OutDifyImageResponse.ID);
+	UE_LOG(LogTemp, Log, TEXT("\n[Name]:%s"), *_OutDifyImageResponse.Name);
+	UE_LOG(LogTemp, Log, TEXT("\n[Size]:%s"), *_OutDifyImageResponse.Size);
+	UE_LOG(LogTemp, Log, TEXT("\n[Extension]:%s"), *_OutDifyImageResponse.Extension);
+	UE_LOG(LogTemp, Log, TEXT("\n[Mime_type]:%s"), *_OutDifyImageResponse.Mime_type);
+	UE_LOG(LogTemp, Log, TEXT("\n[Created_by]:%s"), *_OutDifyImageResponse.Created_by);
+	UE_LOG(LogTemp, Log, TEXT("\n[Created_at]:%s"), *_OutDifyImageResponse.Created_at);
+}
+
+
 //----------------------------------------------------
 // Purpose：在Dify回复时，获取返回的源数据
-// Input：_Request：请求的指针
+// Input：
+//	_Request：请求的指针
 // FIXME：应该不用正则也能匹配data:{...}，比如直接换行，但是懒得改：P
 //----------------------------------------------------
 void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
@@ -308,12 +369,6 @@ void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 		UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
 		return ;
 	}
-
-
-
-	
-
-	
 
 	//获取返回的字符串格式的数据
 	FString responseString = response->GetContentAsString();
@@ -460,10 +515,11 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 //----------------------------------------------------
 // 目的：在一个节点里初始化DifyChat
 //----------------------------------------------------
-void UDifyChatComponent::InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
+void UDifyChatComponent::InitDifyChat(FString _DifyChatURL, FString _DifyFileUploadURL,FString _DifyAPIKey, FString _ChatName, FString _UserName,
 		EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode, TArray<FDifyChatInputs> _DifyInputs)
 {
-	DifyURL					= _DifyURL;
+	DifyURL					= _DifyChatURL;
+	DifyFileUploadURL		= _DifyFileUploadURL;
 	DifyAPIKey				= _DifyAPIKey;
 	ChatName				= _ChatName;
 	UserName				= _UserName;
