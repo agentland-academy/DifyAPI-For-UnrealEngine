@@ -84,6 +84,19 @@ struct FDifyImageResponse
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
 	FString Created_at;
+
+	FDifyImageResponse() : ID(TEXT("")){}
+	FDifyImageResponse(FString _ID) : ID(_ID) {}
+
+	bool IsEmpty() const
+    {
+		// ID为空就表示没有图片
+        return ID.IsEmpty();
+    }
+    
+	
+	
+	
 };
 
 //委托,在[dify返回后]
@@ -132,20 +145,20 @@ protected:
 
 	// 向Dify服务器发一张图片
 	UFUNCTION(BlueprintCallable, Category = "DifyImage")
-	void SentAnImageToDifyRequest();
+	void SentAnImageToDifyRequest(FString _Message);
 
-	//收到DifyImage响应后的回调
-	void OnDifyImageResponded(FHttpResponsePtr _Response);
+	//收到DifyImage响应后的回调，然后继续发送TEXT信息
+	void OnDifyImageResponded(FHttpResponsePtr _Response,FString _Message);
 
 	// 解析DifyImage返回的数据
 	UFUNCTION(BlueprintCallable, Category = "DifyImage")
-	void ParseDifyImageResponse(FString _Response, FDifyImageResponse& _OutDifyImageResponse);
+	bool ParseDifyImageResponse(FString _Response, FDifyImageResponse& _OutDifyImageResponse);
 
 	
 	
 	//向Dify发送Post请求
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
-	void SentDifyPostRequest(FString _Message);
+	void SentDifyPostRequest(FString _Message,FDifyImageResponse _ImageResponse);
 
 	//收到Dify响应时的回调
 	void OnDifyResponding(const FHttpRequestPtr& _Request);
