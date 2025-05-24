@@ -14,12 +14,24 @@ struct FDifyChatInputs
 {
     GENERATED_USTRUCT_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Input")
     FString Key;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Input")
     FString Value;
 };
+
+//文件的输入，仅支持image
+USTRUCT(BlueprintType)
+struct FDifyChatFileInputs
+{
+	GENERATED_USTRUCT_BODY()
+
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Input")
+	UTextureRenderTarget2D* Image;
+};
+
 
 
 
@@ -29,31 +41,31 @@ struct FDifyChatResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString event;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString task_id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString message_id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString conversation_id;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString mode;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString answer;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString created_at;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString ChatName;
 };
 
@@ -64,25 +76,25 @@ struct FDifyImageResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyImageResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
 	FString ID;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
 	FString Name;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
 	FString Size;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
 	FString Extension;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
 	FString Mime_type;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
 	FString Created_by;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
 	FString Created_at;
 
 	FDifyImageResponse() : ID(TEXT("")){}
@@ -144,14 +156,14 @@ protected:
 
 
 	// 向Dify服务器发一张图片
-	UFUNCTION(BlueprintCallable, Category = "DifyImage")
-	void SentAnImageToDifyRequest(FString _Message);
+	UFUNCTION(BlueprintCallable, Category = "DifyChat | Image")
+	void SentAnImageToDifyRequest(FString _Message, FDifyChatFileInputs _File);
 
 	//收到DifyImage响应后的回调，然后继续发送TEXT信息
 	void OnDifyImageResponded(FHttpResponsePtr _Response,FString _Message);
 
 	// 解析DifyImage返回的数据
-	UFUNCTION(BlueprintCallable, Category = "DifyImage")
+	UFUNCTION(BlueprintCallable, Category = "DifyChat | Image")
 	bool ParseDifyImageResponse(FString _Response, FDifyImageResponse& _OutDifyImageResponse);
 
 	
@@ -195,7 +207,7 @@ public:
 
 	/////////////////////ChatAI的功能/////////////////////
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
-	void TalkToAI(FString _Message);
+	void TalkToAI(FString _Message,FDifyChatFileInputs _File);
 	
 
 protected:

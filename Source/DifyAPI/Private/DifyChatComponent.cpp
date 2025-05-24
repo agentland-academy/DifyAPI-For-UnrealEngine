@@ -4,9 +4,12 @@
 #include "DifyChatComponent.h"
 
 #include "HttpModule.h"
+#include "IImageWrapper.h"
+#include "IImageWrapperModule.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Dom/JsonObject.h"
 #include "Dom/JsonValue.h"
+#include "Engine/TextureRenderTarget2D.h"
 #include "Serialization/JsonWriter.h"
 #include "Serialization/JsonSerializer.h"
 
@@ -81,14 +84,77 @@ TArray<uint8> FStringToUint8(const FString& InString)
 // }
 
 
+//将RenderTarget写入TArray<uint8>
+TArray<uint8> LoadTexture2DToArray(UTextureRenderTarget2D* _RenderTarget)
+{
+	TArray<uint8> fileRawData = TArray<uint8>();
+
+	if(!_RenderTarget || _RenderTarget->SizeX <= 0 || _RenderTarget->SizeY <= 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Invalid RenderTarget"));
+		return fileRawData; 
+	}
+	
+	TArray<FColor> outPixels;
+	FTextureRenderTargetResource* rtRes =
+		_RenderTarget->GameThread_GetRenderTargetResource();
+
+	bool canReadPixels = rtRes->ReadPixels(outPixels,FReadSurfaceDataFlags());
+	if(!canReadPixels)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to read pixels from RenderTarget"));
+		return fileRawData; 
+	}
+
+	// 转换为RGBA8字节流
+	TArray<uint8> RawData;
+	RawData.SetNumUninitialized(outPixels.Num() * sizeof(FColor));
+	for (int32 i = 0; i < outPixels.Num(); i++)
+	{
+		RawData[i * 4 + 0] = outPixels[i].R;
+		RawData[i * 4 + 1] = outPixels[i].G;
+		RawData[i * 4 + 2] = outPixels[i].B;
+		RawData[i * 4 + 3] = outPixels[i].A;
+	}
+
+	IImageWrapperModule& imageWrapperModule =
+		FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
+
+	//jpeg尽量小一点
+	TSharedPtr<IImageWrapper> imageWrapper =
+		imageWrapperModule.CreateImageWrapper(EImageFormat::JPEG);
+	
+	if (!imageWrapper.IsValid())
+	{
+		//empty
+		UE_LOG(LogTemp, Error, TEXT("Failed to create image wrapper"));
+		return fileRawData;
+	}
+
+	bool bCanSetRaw = 
+		imageWrapper->SetRaw(RawData.GetData(),RawData.Num(),
+			_RenderTarget->SizeX,_RenderTarget->SizeY,
+			ERGBFormat::RGBA,8);
+	
+	if(!bCanSetRaw)
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to set raw data to image wrapper"));
+		return fileRawData;
+	}
+
+	fileRawData = imageWrapper->GetCompressed();
+	
+	return fileRawData;
+}
+
 //--------------------------------------
 // 目的：向Dify发送一张文件(仅支持图片),成功上传后，服务器会返回文件的 ID 和相关信息
 //--------------------------------------
-void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message)
+void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,FDifyChatFileInputs _File)
 {
 	FString fileTestPath = (FPaths::ProjectContentDir() + TEXT("Temp/ForDifyTest/nana7mi.jpeg"));
 	
-	FString FileName = FPaths::GetCleanFilename(fileTestPath);
+	FString FileName = "testimage114";//FPaths::GetCleanFilename(fileTestPath);
 
 	CurrentHttpRequest = FHttpModule::Get().CreateRequest();
 	
@@ -111,8 +177,13 @@ void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message)
 	TArray<uint8> CombinedContent;
 
 	TArray<uint8> FileRawData;
-	FFileHelper::LoadFileToArray(FileRawData, *fileTestPath);
+	//FFileHelper::LoadFileToArray(FileRawData, *fileTestPath);
 
+	
+	//将imgFile写入FileRawData
+	FileRawData = LoadTexture2DToArray(_File.Image);
+
+	
 
 	
 	// First, we add the boundary for the file, which is different from text payload
@@ -580,7 +651,7 @@ void UDifyChatComponent::InitDifyChat(FString _DifyChatURL, FString _DifyFileUpl
 //----------------------------------------------------
 // 目的：向Dify发送消息
 //----------------------------------------------------
-void UDifyChatComponent::TalkToAI(FString _Message)
+void UDifyChatComponent::TalkToAI(FString _Message, FDifyChatFileInputs _File)
 {
 	//如果上一个还没返回，就不发送
 	if (bIsWaitingDifyResponse)
@@ -592,10 +663,11 @@ void UDifyChatComponent::TalkToAI(FString _Message)
 	LastDataBlocksIndex = 0;
 
 	//发送请求,并设置为正在等待返回,重新计算上一轮回复内容
-	bool bHasImage = true;
+	
+	bool bHasImage = ( IsValid(_File.Image) && _File.Image->GetResource() != nullptr);
 	if(bHasImage)
 	{
-		SentAnImageToDifyRequest(_Message);
+		SentAnImageToDifyRequest(_Message,_File);
 	}
 	else
 	{
