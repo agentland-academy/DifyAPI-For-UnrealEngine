@@ -20,7 +20,6 @@ FString UDifyResponseParser::ParseJsonStringValue(const FString& _OriginJson, FS
 	{
 		return FString();
 	}
-
 	
 	if(!jsonObject.IsValid())
 	{
@@ -28,26 +27,36 @@ FString UDifyResponseParser::ParseJsonStringValue(const FString& _OriginJson, FS
 	}
 
 	FString value;
-	bool bCouldet = jsonObject->TryGetStringField(_Key, value);
-	if (!bCouldet)
+	
+	bool bCouldGet = jsonObject->TryGetStringField(_Key, value);
+	if (!bCouldGet)
 	{
 		return FString();
 	}
+	
 	return value;
 }
 
 FString UDifyResponseParser::ParseJsonStringValueByStruct(const FDifyChatResponse& _OriginResponse, FString _Key)
 {
-	return "114514";
+	FString answer = _OriginResponse.answer;
+	return ParseJsonStringValue(answer, _Key);
 }
 
 double UDifyResponseParser::ParseJsonFloatValue(const FString& _OriginJson, FString _Key)
 {
-	return 114514;
+	FString value = ParseJsonStringValue(_OriginJson, _Key);
+	double floatValue = FCString::Atof(*value);
+	if (FMath::IsNaN(floatValue))
+	{
+		return 0.0;
+	}
+	return floatValue;
 }
 
 double UDifyResponseParser::ParseJsonFloatValueByStruct(const FDifyChatResponse& _OriginResponse, FString _Key)
 {
-	return 114514;
+	FString answer = _OriginResponse.answer;
+	return ParseJsonFloatValue(answer, _Key);
 }
 
