@@ -37,11 +37,59 @@ FString UDifyResponseParser::ParseJsonStringValue(const FString& _OriginJson, FS
 	return value;
 }
 
+TArray<FString> UDifyResponseParser::ParseJsonStringValues(const FString& _OriginJson, FString _Key)
+{
+	TArray<FString> values;
+	
+	TSharedPtr<FJsonObject> jsonObject;
+	TSharedRef<TJsonReader<>> reader = TJsonReaderFactory<>::Create(_OriginJson);
+
+	bool bIsValidJson = FJsonSerializer::Deserialize(reader, jsonObject);
+	if (!bIsValidJson)
+	{
+		return values;
+	}
+
+	if(!jsonObject.IsValid())
+	{
+		return values;
+	}
+	
+	FStringView keyView = FStringView(*_Key);
+	TArray<TSharedPtr<FJsonValue>> valueArray = jsonObject->GetArrayField(keyView);
+
+	// 遍历数组中的每个值
+	for(TSharedPtr<FJsonValue> valueJson : valueArray)
+	{
+		TSharedPtr<FJsonObject> valueJsonObject = valueJson->AsObject();
+		// 将JSON对象转换为字符串
+		FString valueJsonObjectString;
+		TSharedRef<TJsonWriter<>> writer = TJsonWriterFactory<>::Create(&valueJsonObjectString);
+		bool bCoudSerialize =  
+			FJsonSerializer::Serialize(valueJsonObject.ToSharedRef(), writer);
+		if(!bCoudSerialize)
+		{
+			break;
+		}
+		values.Add(valueJsonObjectString);
+	}
+
+	return values;
+}
+
+
 FString UDifyResponseParser::ParseJsonStringValueByStruct(const FDifyChatResponse& _OriginResponse, FString _Key)
 {
 	FString answer = _OriginResponse.answer;
 	return ParseJsonStringValue(answer, _Key);
 }
+
+TArray<FString> UDifyResponseParser::ParseJsonStringValuesByStruct(const FDifyChatResponse& _OriginResponse,FString _Key)
+{
+	FString answer = _OriginResponse.answer;
+	return ParseJsonStringValues(answer, _Key);
+}
+
 
 double UDifyResponseParser::ParseJsonFloatValue(const FString& _OriginJson, FString _Key)
 {
