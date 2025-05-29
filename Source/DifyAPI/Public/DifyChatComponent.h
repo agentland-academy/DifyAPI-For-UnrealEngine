@@ -14,12 +14,24 @@ struct FDifyChatInputs
 {
     GENERATED_USTRUCT_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Input")
     FString Key;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyInput")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Input")
     FString Value;
 };
+
+//文件的输入，仅支持image
+USTRUCT(BlueprintType)
+struct FDifyChatFileInputs
+{
+	GENERATED_USTRUCT_BODY()
+
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Input")
+	UTextureRenderTarget2D* Image;
+};
+
 
 
 
@@ -29,32 +41,74 @@ struct FDifyChatResponse
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString event;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString task_id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString message_id;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString conversation_id;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString mode;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString answer;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString created_at;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyResponse")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Response")
 	FString ChatName;
+};
+
+
+//Dify返回的Image数据结构
+USTRUCT(BlueprintType)
+struct FDifyImageResponse
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
+	FString ID;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
+	FString Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
+	FString Size;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
+	FString Extension;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
+	FString Mime_type;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
+	FString Created_by;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat | Image | Response")
+	FString Created_at;
+
+	FDifyImageResponse() : ID(TEXT("")){}
+	FDifyImageResponse(FString _ID) : ID(_ID) {}
+
+	bool IsEmpty() const
+    {
+		// ID为空就表示没有图片
+        return ID.IsEmpty();
+    }
+    
+	
+	
+	
 };
 
 //委托,在[dify返回后]
@@ -99,11 +153,24 @@ protected:
 	virtual void BeginPlay() override;
 
 	virtual void BeginDestroy() override;
+
+
+	// 向Dify服务器发一张图片
+	UFUNCTION(BlueprintCallable, Category = "DifyChat | Image")
+	void SentAnImageToDifyRequest(FString _Message, FDifyChatFileInputs _File);
+
+	//收到DifyImage响应后的回调，然后继续发送TEXT信息
+	void OnDifyImageResponded(FHttpResponsePtr _Response,FString _Message);
+
+	// 解析DifyImage返回的数据
+	UFUNCTION(BlueprintCallable, Category = "DifyChat | Image")
+	bool ParseDifyImageResponse(FString _Response, FDifyImageResponse& _OutDifyImageResponse);
+
 	
 	
-	//像Dify发送Post请求
+	//向Dify发送Post请求
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
-	void SentDifyPostRequest(FString _Message);
+	void SentDifyPostRequest(FString _Message,FDifyImageResponse _ImageResponse);
 
 	//收到Dify响应时的回调
 	void OnDifyResponding(const FHttpRequestPtr& _Request);
@@ -132,7 +199,7 @@ public:
 	
 	//初始化ChatAI,刚创建时就用这个
 	UFUNCTION(BlueprintCallable, Category = "DifyChat" )
-	void InitDifyChat(FString _DifyURL, FString _DifyAPIKey, FString _ChatName, FString _UserName,
+	void InitDifyChat(FString _DifyChatURL, FString _DifyFileUploadURL,FString _DifyAPIKey, FString _ChatName, FString _UserName,
 						EDifyChatType _DifyChatType,
 						EDifyChatResponseMode _DifyChatResponseMode,
 						TArray<FDifyChatInputs> _DifyInputs);
@@ -140,15 +207,21 @@ public:
 
 	/////////////////////ChatAI的功能/////////////////////
 	UFUNCTION(BlueprintCallable, Category = "DifyChat")
-	void TalkToAI(FString _Message);
+	void TalkToAI(FString _Message,FDifyChatFileInputs _File);
 	
 
 protected:
 	///////////////////// 基本属性 /////////////////////
 
 	//Dify的URL
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat",
+		meta=(DisplayName="Dify Chat URL",ToolTip = "http://xxx/v1/chat-messages"))
 	FString DifyURL;
+
+	//Dify服务器的URL,显示名称为“upload”
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat",
+		meta=(DisplayName="Dify File Upload URL",ToolTip = "http://xxx/v1/files/upload"))
+	FString DifyFileUploadURL;
 
 	//Dify的API密钥
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DifyChat")
@@ -179,6 +252,7 @@ protected:
 	FDifyChatResponse LastCompletedResponse;
 
 	
+public:
 	
 	//===================== 委托 ========================//
 
@@ -213,6 +287,7 @@ protected:
 	UPROPERTY(BlueprintAssignable, Category = "DifyChat")
 	FDifyChatTalkToDelegate OnDifyChatTalkTo;
 
+protected:
 	///////////////////// 参数 /////////////////////
 
 	//是否正在等待Dify返回
@@ -230,7 +305,7 @@ protected:
 	int LastDataBlocksIndex = 0;
 
 	//当前的Http请求
-	TSharedPtr<IHttpRequest> CurrentHttpRequest;
+	TSharedPtr<IHttpRequest,ESPMode::ThreadSafe> CurrentHttpRequest;
 	
 };
 
