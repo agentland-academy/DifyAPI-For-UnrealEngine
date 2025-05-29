@@ -8,7 +8,7 @@ UDifyResponseParser::UDifyResponseParser(const FObjectInitializer& ObjectInitial
 : Super(ObjectInitializer)
 {}
 
-
+/////////////////////////// String ///////////////////////////
 FString UDifyResponseParser::ParseJsonStringValue(const FString& _OriginJson, FString _Key)
 {
 	// 解析json
@@ -61,22 +61,33 @@ TArray<FString> UDifyResponseParser::ParseJsonStringValues(const FString& _Origi
 	// 遍历数组中的每个值
 	for(TSharedPtr<FJsonValue> valueJson : valueArray)
 	{
-		TSharedPtr<FJsonObject> valueJsonObject = valueJson->AsObject();
-		// 将JSON对象转换为字符串
-		FString valueJsonObjectString;
-		TSharedRef<TJsonWriter<>> writer = TJsonWriterFactory<>::Create(&valueJsonObjectString);
-		bool bCoudSerialize =  
-			FJsonSerializer::Serialize(valueJsonObject.ToSharedRef(), writer);
-		if(!bCoudSerialize)
+		// 将JSON转换为字符串
+		FString valueJsonString;
+
+		// 如果是[｛"key":"value"｝]这种
+		if(valueJson->Type == EJson::Object)
 		{
-			break;
+			TSharedPtr<FJsonObject> valueJsonObject = valueJson->AsObject();
+			TSharedRef<TJsonWriter<>> writer = TJsonWriterFactory<>::Create(&valueJsonString);
+			bool bCoudSerialize =  
+				FJsonSerializer::Serialize(valueJsonObject.ToSharedRef(), writer);
+			if(!bCoudSerialize)
+			{
+				break;
+			}
 		}
-		values.Add(valueJsonObjectString);
+		// 如果是["value1","value2"]这种
+		else if(valueJson->Type == EJson::String)
+		{
+			valueJsonString = valueJson->AsString();
+		}
+		
+		values.Add(valueJsonString);
 	}
 
 	return values;
 }
-
+ 
 
 FString UDifyResponseParser::ParseJsonStringValueByStruct(const FDifyChatResponse& _OriginResponse, FString _Key)
 {
@@ -90,7 +101,7 @@ TArray<FString> UDifyResponseParser::ParseJsonStringValuesByStruct(const FDifyCh
 	return ParseJsonStringValues(answer, _Key);
 }
 
-
+/////////////////////////// Float ///////////////////////////
 double UDifyResponseParser::ParseJsonFloatValue(const FString& _OriginJson, FString _Key)
 {
 	FString value = ParseJsonStringValue(_OriginJson, _Key);
@@ -102,9 +113,34 @@ double UDifyResponseParser::ParseJsonFloatValue(const FString& _OriginJson, FStr
 	return floatValue;
 }
 
+TArray<double> UDifyResponseParser::ParseJsonFloatValues(const FString& _OriginJson, FString _Key)
+{
+	TArray<double> floatValues;
+	TArray<FString> stringValues = 
+		ParseJsonStringValues(_OriginJson, _Key);
+
+	for(const FString& stringValue : stringValues)
+	{
+		double floatValue = FCString::Atof(*stringValue);
+		if (FMath::IsNaN(floatValue))
+		{
+			floatValue = 0.0;
+		}
+		floatValues.Add(floatValue);
+	}
+	
+	return floatValues;
+}
+
+
 double UDifyResponseParser::ParseJsonFloatValueByStruct(const FDifyChatResponse& _OriginResponse, FString _Key)
 {
 	FString answer = _OriginResponse.answer;
 	return ParseJsonFloatValue(answer, _Key);
 }
 
+TArray<double> UDifyResponseParser::ParseJsonFloatValuesByStruct(const FDifyChatResponse& _OriginResponse, FString _Key)
+{
+	FString answer = _OriginResponse.answer;
+	return ParseJsonFloatValues(answer, _Key);
+}
