@@ -4,8 +4,8 @@
 #include "DifyAPI.h"
 #include "DifyChatComponent.h"
 
-UDifyResponseParser::UDifyResponseParser(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+UDifyResponseParser::UDifyResponseParser(const FObjectInitializer& _ObjectInitializer)
+: Super(_ObjectInitializer)
 {}
 
 /////////////////////////// String ///////////////////////////
