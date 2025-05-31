@@ -13,6 +13,7 @@ class UDifySceneCapture : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 private:
+	UFUNCTION()
 	static UTextureRenderTarget2D* CreatDefaultRenderTarget2D(float _Width, float _Height);
 public:
 	UFUNCTION(BlueprintPure, Category = "DifyAPI|场景捕获", meta = (DisplayName = "获取指定变换的场景捕捉2D纹理"))

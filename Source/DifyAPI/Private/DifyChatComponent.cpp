@@ -24,17 +24,9 @@ UDifyChatComponent::UDifyChatComponent()
 	DifyChatResponseMode = EDifyChatResponseMode::Blocking;
 }
 
-
-
-// Called when the game starts
 void UDifyChatComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-
-	
-	// ...
-	
 }
 
 void UDifyChatComponent::BeginDestroy()
@@ -150,7 +142,7 @@ TArray<uint8> LoadTexture2DToArray(UTextureRenderTarget2D* _RenderTarget)
 //--------------------------------------
 // 目的：向Dify发送一张文件(仅支持图片),成功上传后，服务器会返回文件的 ID 和相关信息
 //--------------------------------------
-void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,FDifyChatFileInputs _File)
+void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,UTextureRenderTarget2D* _File)
 {
 	FString fileTestPath = (FPaths::ProjectContentDir() + TEXT("Temp/ForDifyTest/nana7mi.jpeg"));
 	
@@ -181,7 +173,7 @@ void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,FDifyChatFile
 
 	
 	//将imgFile写入FileRawData
-	FileRawData = LoadTexture2DToArray(_File.Image);
+	FileRawData = LoadTexture2DToArray(_File);
 
 	
 
@@ -651,7 +643,7 @@ void UDifyChatComponent::InitDifyChat(FString _DifyChatURL, FString _DifyFileUpl
 //----------------------------------------------------
 // 目的：向Dify发送消息
 //----------------------------------------------------
-void UDifyChatComponent::TalkToAI(FString _Message, FDifyChatFileInputs _File)
+void UDifyChatComponent::TalkToAI(FString _Message, UTextureRenderTarget2D* _File)
 {
 	//如果上一个还没返回，就不发送
 	if (bIsWaitingDifyResponse)
@@ -664,7 +656,7 @@ void UDifyChatComponent::TalkToAI(FString _Message, FDifyChatFileInputs _File)
 
 	//发送请求,并设置为正在等待返回,重新计算上一轮回复内容
 	
-	bool bHasImage = ( IsValid(_File.Image) && _File.Image->GetResource() != nullptr);
+	bool bHasImage = ( IsValid(_File) && _File->GetResource() != nullptr);
 	if(bHasImage)
 	{
 		SentAnImageToDifyRequest(_Message,_File);
