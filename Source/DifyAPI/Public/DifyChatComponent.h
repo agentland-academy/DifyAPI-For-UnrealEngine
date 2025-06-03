@@ -144,6 +144,7 @@ protected://===================== Functions ========================//
 	bool ParseDifyImageResponse(FString _Response, FDifyImageResponse& _OutDifyImageResponse);
 	
 	//向Dify发送Post请求
+	//UFUNCTION()
 	void SentDifyPostRequest(FString _Message,FDifyImageResponse _ImageResponse);
 
 	//收到Dify响应时的回调
@@ -168,10 +169,10 @@ public://===================== Functions ========================//
 	
 	//初始化ChatAI,刚创建时就用这个
 	UFUNCTION(BlueprintCallable, Category = "DifyAPI|Chat" )
-	void InitDifyChat(FString _DifyChatURL, FString _DifyFileUploadURL,FString _DifyAPIKey, FString _ChatName, FString _UserName,
+	void InitDifyChat(FString _DifyURL,FString _DifyAPIKey, FString _ChatName, FString _UserName,
 						EDifyChatType _DifyChatType,
 						EDifyChatResponseMode _DifyChatResponseMode,
-						TArray<FDifyChatInputs> _DifyInputs);
+						const TArray<FDifyChatInputs>& _DifyInputs);
 	
 	//与Dify通信
 	UFUNCTION(BlueprintCallable, Category = "DifyAPI|Chat")
