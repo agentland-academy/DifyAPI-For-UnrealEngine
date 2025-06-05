@@ -144,7 +144,6 @@ protected://===================== Functions ========================//
 	bool ParseDifyImageResponse(FString _Response, FDifyImageResponse& _OutDifyImageResponse);
 	
 	//向Dify发送Post请求
-	//UFUNCTION()
 	void SentDifyPostRequest(FString _Message,FDifyImageResponse _ImageResponse);
 
 	//收到Dify响应时的回调
