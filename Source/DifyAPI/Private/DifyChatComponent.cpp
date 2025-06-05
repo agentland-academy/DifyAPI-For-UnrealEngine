@@ -24,17 +24,9 @@ UDifyChatComponent::UDifyChatComponent()
 	DifyChatResponseMode = EDifyChatResponseMode::Blocking;
 }
 
-
-
-// Called when the game starts
 void UDifyChatComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-
-	
-	// ...
-	
 }
 
 void UDifyChatComponent::BeginDestroy()
@@ -150,7 +142,7 @@ TArray<uint8> LoadTexture2DToArray(UTextureRenderTarget2D* _RenderTarget)
 //--------------------------------------
 // 目的：向Dify发送一张文件(仅支持图片),成功上传后，服务器会返回文件的 ID 和相关信息
 //--------------------------------------
-void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,FDifyChatFileInputs _File)
+void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,UTextureRenderTarget2D* _File)
 {
 	FString fileTestPath = (FPaths::ProjectContentDir() + TEXT("Temp/ForDifyTest/nana7mi.jpeg"));
 	
@@ -181,7 +173,7 @@ void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,FDifyChatFile
 
 	
 	//将imgFile写入FileRawData
-	FileRawData = LoadTexture2DToArray(_File.Image);
+	FileRawData = LoadTexture2DToArray(_File);
 
 	
 
@@ -235,7 +227,8 @@ void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,FDifyChatFile
 			//输出报错
 			UE_LOG(LogTemp, Error, TEXT("%s"), *logText);
 			//设置为不再等待返回
-			WeakThis->bIsWaitingDifyResponse = false;
+			if(WeakThis.IsValid())
+				WeakThis->bIsWaitingDifyResponse = false;
 		}
 
 		if(WeakThis.IsValid())
@@ -329,7 +322,7 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message, FDifyImageRespons
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
 
-	UE_LOG(LogTemp, Log, TEXT("[OutputString]:%s"), *OutputString);
+	//UE_LOG(LogTemp, Log, TEXT("[OutputString]:%s"), *OutputString);
 
 	// 设置请求内容
 	CurrentHttpRequest->SetContentAsString(OutputString);
@@ -368,7 +361,8 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message, FDifyImageRespons
 			UE_LOG(LogTemp, Error, TEXT("%s"), *logText);
 
 			//设置为不再等待返回
-			WeakThis->bIsWaitingDifyResponse = false;
+			if(WeakThis.IsValid())
+				WeakThis->bIsWaitingDifyResponse = false;
 		}
 
 		if(WeakThis.IsValid())
@@ -411,7 +405,7 @@ void UDifyChatComponent::OnDifyImageResponded(FHttpResponsePtr _Response,FString
 	FString imageID = imageResponse.ID;
 	FString imageUser = imageResponse.Created_by;
 
-	UE_LOG(LogTemp, Log, TEXT("[DifyImageChat]:\nID:%s\nUser:%s\n_Message:%s"), *imageID, *imageUser,*_Message);
+	//UE_LOG(LogTemp, Log, TEXT("[DifyImageChat]:\nID:%s\nUser:%s\n_Message:%s"), *imageID, *imageUser,*_Message);
 
 	
 	//继续发送文本信息
@@ -451,14 +445,14 @@ bool UDifyChatComponent::ParseDifyImageResponse(FString _Response,FDifyImageResp
 	_OutDifyImageResponse.Created_at	=	JsonObject->GetStringField(TEXT("created_at"));
 
 	
-	UE_LOG(LogTemp, Log, TEXT("\n[ImageResponse]"));
-	UE_LOG(LogTemp, Log, TEXT("\n[ID]:%s"), *_OutDifyImageResponse.ID);
-	UE_LOG(LogTemp, Log, TEXT("\n[Name]:%s"), *_OutDifyImageResponse.Name);
-	UE_LOG(LogTemp, Log, TEXT("\n[Size]:%s"), *_OutDifyImageResponse.Size);
-	UE_LOG(LogTemp, Log, TEXT("\n[Extension]:%s"), *_OutDifyImageResponse.Extension);
-	UE_LOG(LogTemp, Log, TEXT("\n[Mime_type]:%s"), *_OutDifyImageResponse.Mime_type);
-	UE_LOG(LogTemp, Log, TEXT("\n[Created_by]:%s"), *_OutDifyImageResponse.Created_by);
-	UE_LOG(LogTemp, Log, TEXT("\n[Created_at]:%s"), *_OutDifyImageResponse.Created_at);
+	//UE_LOG(LogTemp, Log, TEXT("\n[ImageResponse]"));
+	//UE_LOG(LogTemp, Log, TEXT("\n[ID]:%s"), *_OutDifyImageResponse.ID);
+	//UE_LOG(LogTemp, Log, TEXT("\n[Name]:%s"), *_OutDifyImageResponse.Name);
+	//UE_LOG(LogTemp, Log, TEXT("\n[Size]:%s"), *_OutDifyImageResponse.Size);
+	//UE_LOG(LogTemp, Log, TEXT("\n[Extension]:%s"), *_OutDifyImageResponse.Extension);
+	//UE_LOG(LogTemp, Log, TEXT("\n[Mime_type]:%s"), *_OutDifyImageResponse.Mime_type);
+	//UE_LOG(LogTemp, Log, TEXT("\n[Created_by]:%s"), *_OutDifyImageResponse.Created_by);
+	//UE_LOG(LogTemp, Log, TEXT("\n[Created_at]:%s"), *_OutDifyImageResponse.Created_at);
 
 	return true;
 }
@@ -511,7 +505,7 @@ void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 	//UE_LOG(LogTemp, Log, TEXT("[DataBlocks]:%s"),*responseString);
 		
 	int testI = dataBlocks.Num();
-	UE_LOG(LogTemp, Log, TEXT("[DataBlocks.Num]:%d"),testI);
+	//UE_LOG(LogTemp, Log, TEXT("[DataBlocks.Num]:%d"),testI);
 
 	//有时会同时新返回多个data{}，所以要用循环
 	for(int i = LastDataBlocksIndex; i < dataBlocks.Num(); i++)
@@ -572,7 +566,7 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	FString jsonString;
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&jsonString);
 	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
-	UE_LOG(LogTemp, Log, TEXT("[ParseDifyResponse]:\n%s"), *jsonString);
+	//UE_LOG(LogTemp, Log, TEXT("[ParseDifyResponse]:\n%s"), *jsonString);
 
 	////////////////////////// JSON参考 //////////////////////////
 	///event 
@@ -611,8 +605,8 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 		difyChatResponse.mode = JsonObject->GetStringField(TEXT("mode"));
 	}
 	
-	UE_LOG(LogTemp, Log, TEXT("\n[event]:\n%s"), *difyChatResponse.event);
-	UE_LOG(LogTemp, Log, TEXT("\n[answer]:\n%s"), *difyChatResponse.answer);
+	//UE_LOG(LogTemp, Log, TEXT("\n[event]:\n%s"), *difyChatResponse.event);
+	//UE_LOG(LogTemp, Log, TEXT("\n[answer]:\n%s"), *difyChatResponse.answer);
 
 	
 	//保存ConversationID
@@ -633,25 +627,25 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 //----------------------------------------------------
 // 目的：在一个节点里初始化DifyChat
 //----------------------------------------------------
-void UDifyChatComponent::InitDifyChat(FString _DifyChatURL, FString _DifyFileUploadURL,FString _DifyAPIKey, FString _ChatName, FString _UserName,
-		EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode, TArray<FDifyChatInputs> _DifyInputs)
+void UDifyChatComponent::InitDifyChat(FString _DifyURL,FString _DifyAPIKey, FString _ChatName, FString _UserName,
+		EDifyChatType _DifyChatType, EDifyChatResponseMode _DifyChatResponseMode,
+		const TArray<FDifyChatInputs>& _DifyInputs)
 {
-	DifyURL					= _DifyChatURL;
-	DifyFileUploadURL		= _DifyFileUploadURL;
+	DifyURL					= _DifyURL+"/chat-messages";
+	DifyFileUploadURL		= _DifyURL+"/files/upload";
 	DifyAPIKey				= _DifyAPIKey;
 	ChatName				= _ChatName;
 	UserName				= _UserName;
 	DifyChatType			= _DifyChatType;
 	DifyChatResponseMode	= _DifyChatResponseMode;
 	DifyInputs				= _DifyInputs;
-	
 }
 
 
 //----------------------------------------------------
 // 目的：向Dify发送消息
 //----------------------------------------------------
-void UDifyChatComponent::TalkToAI(FString _Message, FDifyChatFileInputs _File)
+void UDifyChatComponent::TalkToAI(FString _Message, UTextureRenderTarget2D* _File)
 {
 	//如果上一个还没返回，就不发送
 	if (bIsWaitingDifyResponse)
@@ -664,7 +658,7 @@ void UDifyChatComponent::TalkToAI(FString _Message, FDifyChatFileInputs _File)
 
 	//发送请求,并设置为正在等待返回,重新计算上一轮回复内容
 	
-	bool bHasImage = ( IsValid(_File.Image) && _File.Image->GetResource() != nullptr);
+	bool bHasImage = ( IsValid(_File) && _File->GetResource() != nullptr);
 	if(bHasImage)
 	{
 		SentAnImageToDifyRequest(_Message,_File);

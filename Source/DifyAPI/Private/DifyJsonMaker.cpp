@@ -112,6 +112,9 @@ FDifyJsonObject UDifyJsonMaker::AppendJson(FDifyJsonObject _A, FDifyJsonObject _
 	FString jsonA = _A.JsonString;
 	FString jsonB = _B.JsonString;
 
+	if(jsonA.IsEmpty()) {return _B;}
+	if(jsonB.IsEmpty()) {return _A;}
+
 	
 	TSharedPtr<FJsonObject> jsonObjectA;
 	TSharedRef<TJsonReader<>> readerA = TJsonReaderFactory<>::Create(jsonA);
@@ -137,20 +140,13 @@ FDifyJsonObject UDifyJsonMaker::AppendJson(FDifyJsonObject _A, FDifyJsonObject _
 	{
 		jsonObjectA->SetField(Pair.Key, Pair.Value);
 	}
-
-
-	
-	
 	//  jsonObjectA to FString
 	FString jsonStringA;
 	
 	FString OutputString;
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
 	FJsonSerializer::Serialize(jsonObjectA.ToSharedRef(), Writer);
-	
-	UE_LOG(LogTemp, Error, TEXT("[JSON A]\n%s"), *OutputString);
-
-	
+	//UE_LOG(LogTemp, Error, TEXT("[JSON A]\n%s"), *OutputString);
 	return FDifyJsonObject(OutputString);
 }
 
