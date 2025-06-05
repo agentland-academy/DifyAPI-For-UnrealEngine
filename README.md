@@ -2,9 +2,10 @@
 
 [![UE5.4 Compatible](https://img.shields.io/badge/Unreal%20Engine-5.4+-%25232E3438.svg?style=flat&logo=unrealengine)](https://www.unrealengine.com/)
 
-[![Alpha Version](https://img.shields.io/badge/Version-0.1.0_Alpha-orange)](https://semver.org/)
+[![Alpha Version](https://img.shields.io/badge/Version-0.2.0-orange)](https://semver.org/)
 
 **Dify API**是一个在Unreal Engine工程中使用Dify应用的插件，当前版本适用于`聊天助手`，已在UE5.4版本完成基础验证。
+> 0.2.0更新内容：捕获游戏画面发送至Dify；简易JSON合成解析节点
 
 ## 📂 分支管理
 
@@ -14,11 +15,13 @@
 | development | 开发分支，可能存在未完成的功能或实验性代码   |
 | intro-page  | 文档资源分支，存放README所需的图片等媒体文件 |
 
-> ⚠️ **当前状态**：插件处于Alpha开发阶段，控制台会输出详细调试日志，建议使用时手动删除插件内的UE_LOG
-
 ## 🛠️ 安装指南
+### 基础安装（二进制版）
+1. 在项目根目录创建插件文件夹：
+   `MyProject/Plugins/`
+2. 将二进制版插件放入插件文件夹，最终插件目录格式：`MyProject/Plugins/DifyAPI-For-UnrealEngine`
 
-### 基础安装
+### 基础安装（源码版）
 
 1. 在项目根目录创建插件文件夹：
    `MyProject/Plugins/`
@@ -38,6 +41,8 @@
 
    - 右键`.uproject`文件 > Generate Visual Studio project files
    - 启动引擎时选择"Rebuild"
+  
+   
 
 ### 版本兼容性
 
