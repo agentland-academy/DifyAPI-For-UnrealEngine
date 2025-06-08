@@ -339,6 +339,10 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message, FDifyImageRespons
 	[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
 		(const FHttpRequestPtr& _Request, uint64 _BytesSent, uint64 _BytesReceived)
 	{
+		if(!_Request.IsValid())
+		{
+			return;
+		}
 		UE_LOG(LogTemp, Log, TEXT("BytesSent: %llu, BytesReceived: %llu"), _BytesSent, _BytesReceived);
 
 		if(WeakThis.IsValid())
@@ -351,6 +355,17 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message, FDifyImageRespons
 		[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
 		(FHttpRequestPtr _Request, FHttpResponsePtr _Response, bool bWasSuccessful)
 	{
+		if(!_Response.IsValid() || _Request.IsValid())
+		{
+			//不存在就说明请求失败
+			FString logText = "[DifyChatError]:\nRequest failed";
+			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+			if(WeakThis.IsValid())
+				WeakThis->bIsWaitingDifyResponse = false;
+			return;
+		}
+			
+			
 		const int responseCode = _Response->GetResponseCode();
 		// 只有代码为200才是正常响应
 		if(responseCode != 200) 
