@@ -5,6 +5,7 @@
 [![Alpha Version](https://img.shields.io/badge/Version-0.2.0-orange)](https://semver.org/)
 
 **Dify API**是一个在Unreal Engine工程中使用Dify应用的插件，当前版本适用于`聊天助手`，已在UE5.4版本完成基础验证。
+> 0.2.1修复内容：修复在接受到信息前关闭窗口造成的闪退；修复在初始化DifyChat前与其对话造成的闪退；修复有时不触发responded回调的问题；修复无法正确响应冒号和大括号的问题（现在可以正确获取json）；修复版本号错乱的问题
 > 0.2.0更新内容：捕获游戏画面发送至Dify；简易JSON合成解析节点
 
 ## 📂 分支管理
