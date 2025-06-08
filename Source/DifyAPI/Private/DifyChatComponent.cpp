@@ -212,7 +212,7 @@ void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,UTextureRende
 	CurrentHttpRequest->SetContent(CombinedContent);
 
 	
-	///////////////////////// 绑定Dify【响应后】的回调 ////////////////////////////////
+	///////////////////////// 绑定Dify图像服务器【响应后】的回调 ////////////////////////////////
 
 	CurrentHttpRequest->OnProcessRequestComplete().BindLambda(
 		[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this), _Message]
@@ -228,7 +228,8 @@ void UDifyChatComponent::SentAnImageToDifyRequest(FString _Message,UTextureRende
 			UE_LOG(LogTemp, Error, TEXT("%s"), *logText);
 			//设置为不再等待返回
 			if(WeakThis.IsValid())
-				WeakThis->bIsWaitingDifyResponse = false;
+				WeakThis->OnDifyResponded();
+			return ;
 		}
 
 		if(WeakThis.IsValid())
@@ -339,6 +340,10 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message, FDifyImageRespons
 	[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
 		(const FHttpRequestPtr& _Request, uint64 _BytesSent, uint64 _BytesReceived)
 	{
+		if(!_Request.IsValid())
+		{
+			return;
+		}
 		UE_LOG(LogTemp, Log, TEXT("BytesSent: %llu, BytesReceived: %llu"), _BytesSent, _BytesReceived);
 
 		if(WeakThis.IsValid())
@@ -351,6 +356,17 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message, FDifyImageRespons
 		[WeakThis = TWeakObjectPtr<UDifyChatComponent>(this)]
 		(FHttpRequestPtr _Request, FHttpResponsePtr _Response, bool bWasSuccessful)
 	{
+		if(!_Response.IsValid() || !_Request.IsValid())
+		{
+			//不存在就说明请求失败
+			FString logText = "[DifyChatError]:\nRequest failed";
+			UE_LOG(LogTemp, Log, TEXT("%s"), *logText);
+			if(WeakThis.IsValid())
+				WeakThis->OnDifyResponded();
+			return;
+		}
+			
+			
 		const int responseCode = _Response->GetResponseCode();
 		// 只有代码为200才是正常响应
 		if(responseCode != 200) 
@@ -359,10 +375,6 @@ void UDifyChatComponent::SentDifyPostRequest(FString _Message, FDifyImageRespons
 			logText+= "\n" + _Response->GetContentAsString();
 			//输出报错
 			UE_LOG(LogTemp, Error, TEXT("%s"), *logText);
-
-			//设置为不再等待返回
-			if(WeakThis.IsValid())
-				WeakThis->bIsWaitingDifyResponse = false;
 		}
 
 		if(WeakThis.IsValid())
@@ -487,20 +499,19 @@ void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 	}
 
 	//如果是streaming模式，一条条解析
-		
 	TArray<FString> dataBlocks;
 
-	//用正则匹配data:{...}
-	const FRegexPattern difyResponsePattern(TEXT("\\{\"event\": \"message\".*?\\}"));//"data: \\{.*?\\}"
-	FRegexMatcher difyResponseMatcher(difyResponsePattern, responseString);
 
-	// 这里应该可以优化，但是我不知道怎么搞:)
-	while (difyResponseMatcher.FindNext())
-	{
-		FString match = difyResponseMatcher.GetCaptureGroup(0);
-		dataBlocks.Add(match);
-	}
-		
+	//按照回车分割字符串
+	responseString.ParseIntoArray(dataBlocks, TEXT("\n"), true);
+	
+	// FString logs = "";
+	// for(auto s : dataBlocks)
+	// {
+	// 	logs+= s + "\n------------------\n";
+	// }
+	//
+	// UE_LOG(LogTemp, Log, TEXT("[DifyChatresponseString]:\n%s"), *logs);
 
 	//UE_LOG(LogTemp, Log, TEXT("[DataBlocks]:%s"),*responseString);
 		
@@ -511,7 +522,15 @@ void UDifyChatComponent::OnDifyResponding(const FHttpRequestPtr& _Request)
 	for(int i = LastDataBlocksIndex; i < dataBlocks.Num(); i++)
 	{
 		responseString = dataBlocks[i];
-			
+
+		for(int j = 0; j < responseString.Len(); j++)
+		{
+			if(responseString[j] == '{') //找到第一个{
+			{
+				responseString = responseString.Mid(j);
+				break;
+			}
+		}
 		//解析返回的数据，然后直接广播委托
 		ParseDifyResponse(responseString);
 	}
@@ -552,9 +571,9 @@ void UDifyChatComponent::OnDifyResponded()
 void UDifyChatComponent::ParseDifyResponse(FString _Response)
 {
 	////////////////////////// 创建JSON对象 //////////////////////////
-	TSharedPtr<FJsonObject> JsonObject;
+	TSharedPtr<FJsonObject> jsonObject;
 	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(_Response);
-	if (!FJsonSerializer::Deserialize(Reader, JsonObject))
+	if (!FJsonSerializer::Deserialize(Reader, jsonObject))
 	{
 		//_Response
 		UE_LOG(LogTemp, Error, TEXT("[Error_Response]:\n%s"), *_Response);
@@ -564,10 +583,11 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 
 	//JsonObject to string
 	FString jsonString;
-	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&jsonString);
-	FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+	TSharedRef<TJsonWriter<>> writer = TJsonWriterFactory<>::Create(&jsonString);
+	FJsonSerializer::Serialize(jsonObject.ToSharedRef(), writer);
 	//UE_LOG(LogTemp, Log, TEXT("[ParseDifyResponse]:\n%s"), *jsonString);
 
+	
 	////////////////////////// JSON参考 //////////////////////////
 	///event 
 	///task_id 
@@ -582,27 +602,26 @@ void UDifyChatComponent::ParseDifyResponse(FString _Response)
 	////////////////////////// 解析JSON /////////////////////////
 	FDifyChatResponse difyChatResponse;
 	
-	difyChatResponse.event = JsonObject->GetStringField(TEXT("event"));
+	difyChatResponse.event = jsonObject->GetStringField(TEXT("event"));
 
-	//message_end事件解析不过，不用再次判断
-	//message_end事件，不需要解析,等结束就行了
-	//if(difyChatResponse.event == "message_end")
-    //{
-    //    return;
-    //}
+	//message_end事件不需要解析
+	if(difyChatResponse.event == "message_end")
+    {
+        return;
+    }
 	
-	difyChatResponse.task_id		= JsonObject->GetStringField(TEXT("task_id"));
-	difyChatResponse.id				= JsonObject->GetStringField(TEXT("id"));
-	difyChatResponse.message_id		= JsonObject->GetStringField(TEXT("message_id"));
-	difyChatResponse.conversation_id= JsonObject->GetStringField(TEXT("conversation_id"));
-	difyChatResponse.created_at		= JsonObject->GetStringField(TEXT("created_at"));
+	difyChatResponse.task_id		= jsonObject->GetStringField(TEXT("task_id"));
+	difyChatResponse.id				= jsonObject->GetStringField(TEXT("id"));
+	difyChatResponse.message_id		= jsonObject->GetStringField(TEXT("message_id"));
+	difyChatResponse.conversation_id= jsonObject->GetStringField(TEXT("conversation_id"));
+	difyChatResponse.created_at		= jsonObject->GetStringField(TEXT("created_at"));
 	difyChatResponse.ChatName		= ChatName;
-	difyChatResponse.answer			= JsonObject->GetStringField(TEXT("answer"));
+	difyChatResponse.answer			= jsonObject->GetStringField(TEXT("answer"));
 
 	// 阻塞模式下，还有mode字段
 	if(DifyChatResponseMode == EDifyChatResponseMode::Blocking)
 	{
-		difyChatResponse.mode = JsonObject->GetStringField(TEXT("mode"));
+		difyChatResponse.mode = jsonObject->GetStringField(TEXT("mode"));
 	}
 	
 	//UE_LOG(LogTemp, Log, TEXT("\n[event]:\n%s"), *difyChatResponse.event);
